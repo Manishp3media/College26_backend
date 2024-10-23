@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema({
             message: 'Mobile number is required for users'
         }
     },
-    // For Admin: email is required and unique
+   
     email: {
         type: String,
         unique: true,

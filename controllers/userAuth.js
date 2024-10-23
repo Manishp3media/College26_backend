@@ -40,11 +40,11 @@ export const userSignup = async (req, res) => {
         await user.save();
 
         return res.json({ message: "User created successfully" });
-    } catch (error) {
-        if (error instanceof z.ZodError) {
-            return res.status(400).json({ message: error.message });
+    } catch (err) {
+        if (err instanceof z.ZodError) {
+            return res.status(422).json({ errors: err.errors });
         }
-        return res.status(500).json({ error: error.message });
+        res.status(500).json({ error: err.message });
     }
 };
 
@@ -67,10 +67,10 @@ export const userSignin = async (req, res) => {
         const token = jwt.sign({ _id: user._id, role: user.role }, process.env.JWT_SECRET);
 
         return res.json({ message: "User logged in successfully", token });
-    } catch (error) {
-        if (error instanceof z.ZodError) {
-            return res.status(400).json({ message: error.message });
+    } catch (err) {
+        if (err instanceof z.ZodError) {
+            return res.status(422).json({ errors: err.errors });
         }
-        return res.status(500).json({ error: error.message });
+        res.status(500).json({ error: err.message });
     }
 };

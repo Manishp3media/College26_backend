@@ -4,6 +4,11 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import userAuthRoutes from "./routes/userAuth.js";
 import adminAuthRoutes from "./routes/adminAuth.js";
+import accrediationRoutes from "./routes/accrediation.js";
+import amenityRoutes from "./routes/amenity.js";
+import placementPartnerRoutes from "./routes/placementPartner.js";
+import socialMediaRoutes from "./routes/socialMedia.js";
+import streamRoutes from "./routes/stream.js";
 
 // Load environment variables from .env file
 dotenv.config(); // Load environment variables from .env file
@@ -24,6 +29,11 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 // Routes
 app.use("/api", userAuthRoutes);
 app.use("/api", adminAuthRoutes);
+app.use("/api", accrediationRoutes);
+app.use("/api", amenityRoutes);
+app.use("/api", placementPartnerRoutes);
+app.use("/api", socialMediaRoutes);
+app.use("/api", streamRoutes);
 
 // Test route
 app.get("/", (req, res) => {
