@@ -41,22 +41,11 @@ const userSchema = new mongoose.Schema({
     qualitifcation: {
         type: String
     },
-     // TODO: Add sub-course
-    // subCourse: {
-    //     type: mongoose.Schema.Types.ObjectId,
-    //     ref: 'SubCourse'
-    // },
+
     password: {
         type: String,
     },
-    // selectedCourses: {
-    //     type: [mongoose.Schema.Types.ObjectId],
-    //     ref: 'SubCourse'
-    // },
-    // appliedCourses: {
-    //     type: [mongoose.Schema.Types.ObjectId],
-    //     ref: 'SubCourse'
-    // },
+  
     role: {
         type: String,
         enum: ['admin', 'user'],
@@ -66,3 +55,19 @@ const userSchema = new mongoose.Schema({
 });
 
 export default mongoose.model('User', userSchema);
+
+
+
+     // TODO: Add sub-course
+    // subCourse: {
+    //     type: mongoose.Schema.Types.ObjectId,
+    //     ref: 'SubCourse'
+    // },  
+    // selectedCourses: {
+    //     type: [mongoose.Schema.Types.ObjectId],
+    //     ref: 'SubCourse'
+    // },
+    // appliedCourses: {
+    //     type: [mongoose.Schema.Types.ObjectId],
+    //     ref: 'SubCourse'
+    // },

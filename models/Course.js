@@ -12,7 +12,7 @@ const courseSchema = new mongoose.Schema({
         unique: true
     },
     duration: {
-        type: Number,
+        type: String,
         required: true
     },
     admissionOpen: {
@@ -31,11 +31,11 @@ const courseSchema = new mongoose.Schema({
         type: String,
         enum: ['fullTime', 'partTime']
     },
-    academicLevel:{
+    academicLevel:[{
         type: mongoose.Schema.Types.ObjectId,
         ref: "AcademicLevel",
         required: true
-    }
+    }]
 });
 
 export default mongoose.model("Course", courseSchema);
