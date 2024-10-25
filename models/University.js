@@ -45,15 +45,15 @@ const universitySchema = new mongoose.Schema({
             }
         }
     },
-    accreditations: [{
+    accrediations: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Accrediation",
     }],
-    universitySubCourses: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "UniversitySubCourse",
-        required: true
-    }],
+    // universitySubCourses: [{
+    //     type: mongoose.Schema.Types.ObjectId,
+    //     ref: "UniversitySubCourse",
+    //     required: true
+    // }],
     admissionProcess: {
         description: {
             type: String,
@@ -100,7 +100,7 @@ const universitySchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "PlacementParnter",
     }],
-    SocialMedias: [{
+    socialMediaLinks: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "SocialMedia",
     }],

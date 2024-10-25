@@ -13,6 +13,8 @@ import socialMediaRoutes from "./routes/socialMedia.js";
 import streamRoutes from "./routes/stream.js";
 import academicLevelRoutes from "./routes/academicLevel.js";
 import courseRoutes from "./routes/course.js";
+import subCourseRoutes from "./routes/subCourse.js";
+import universityRoutes from "./routes/university.js";
 
 // Load environment variables from .env file
 dotenv.config(); // Load environment variables from .env file
@@ -61,6 +63,8 @@ connectRedis()
         app.use("/api", streamRoutes);
         app.use("/api", academicLevelRoutes);
         app.use("/api", courseRoutes);
+        app.use("/api", subCourseRoutes);
+        app.use("/api", universityRoutes);
 
         // Test route
         app.get("/", (req, res) => {

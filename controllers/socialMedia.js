@@ -1,7 +1,7 @@
 import SocialMedia from "../models/SocialMedia.js";
 import { addSocialMediaValidationShema } from "../validations/socialMedia.js";
 import z from "zod";
-import { CACHE_KEYS, CACHE_TTL } from "../constants/constants.js";
+import { CACHE_KEYS, CACHE_TTL } from "../constants/cache.js";
 
 // Add Social Media Links
 export const addSocialMedia = async (req, res) => {
@@ -36,11 +36,22 @@ export const addSocialMedia = async (req, res) => {
 // Get Social Media Links
 export const getSocialMedia = async (req, res) => {
     try {
-        // const redisClient = req.redisClient;
+        const redisClient = req.redisClient;
 
-        // // Use the constant cache key
-        // const cachedSocialMedia = await redisClient.
+        // Use the constant cache key
+        const cachedSocialMedia = await redisClient.get(CACHE_KEYS.SOCIAL_MEDIA.ALL);
+        if (cachedSocialMedia) {
+            return res.status(200).json(JSON.parse(cachedSocialMedia));
+        }
+
         const socialMedia = await SocialMedia.find();
+
+        // Use the constant TTL
+        await redisClient.setEx(
+            CACHE_KEYS.SOCIAL_MEDIA.ALL,
+            CACHE_TTL.LONG, // 1 hour cache
+            JSON.stringify(socialMedia)
+        );
         res.status(200).json(socialMedia);
     } catch (err) {
         res.status(500).json({ error: err.message });

@@ -1,7 +1,7 @@
 import Course from "../models/Course.js";
 import z from "zod";
 import { addCourseValidationShema } from "../validations/course.js";
-import { CACHE_KEYS, CACHE_TTL } from "../constants/constants.js";
+import { CACHE_KEYS, CACHE_TTL } from "../constants/cache.js";
 
 // add course
 export const addCourse = async (req, res) => {
@@ -92,6 +92,12 @@ export const editCourse = async (req, res) => {
             academicLevel
         } = req.body;
 
+        // First, check if the course exists by ID
+        const course = await Course.findById(id);
+        if (!course) {
+            return res.status(404).json({ message: "Course not found" });
+        }
+
         // Prepare an update object, including only fields that are provided in the body
         const updateFields = {};
         if (courseName) updateFields.courseName = courseName.toLowerCase();
@@ -116,10 +122,6 @@ export const editCourse = async (req, res) => {
 
         // Update the course in the database
         const updatedCourse = await Course.findByIdAndUpdate(id, { $set: updateFields }, { new: true });
-
-        if (!updatedCourse) {
-            return res.status(404).json({ message: "Course not found" });
-        }
 
         // Invalidate the course cache
         await redisClient.del(CACHE_KEYS.COURSES.ALL);

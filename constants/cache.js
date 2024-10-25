@@ -30,6 +30,14 @@ export const CACHE_KEYS = {
     COURSES: {
         ALL: 'cache:courses:all',
         BY_ID: (id) => `cache:courses:${id}`,
+    },
+    SUB_COURSES: {
+        ALL: 'cache:sub_courses:all',
+        BY_ID: (id) => `cache:sub_courses:${id}`,
+    },
+    UNIVERSITIES: {
+        ALL: 'cache: universities.all',
+        BY_ID: (id) => `cache:universities:${id}`,
     }
 };
 

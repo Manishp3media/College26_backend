@@ -1,7 +1,7 @@
 import AcademicLevel from "../models/AcademicLevel.js";
 import {addAcademicLevelValidationShema} from "../validations/AcademicLevel.js";
 import z from "zod";
-import { CACHE_KEYS, CACHE_TTL } from "../constants/constants.js";
+import { CACHE_KEYS, CACHE_TTL } from "../constants/cache.js";
 
 // ADD ACADEMIC LEVEL
 export const addAcademicLevel = async (req, res) => {
