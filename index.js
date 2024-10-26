@@ -15,7 +15,7 @@ import academicLevelRoutes from "./routes/academicLevel.js";
 import courseRoutes from "./routes/course.js";
 import subCourseRoutes from "./routes/subCourse.js";
 import universityRoutes from "./routes/university.js";
-import universitySubCourse from "./models/UniversitySubCourse.js";
+import universitySubCourseRoutes from "./routes/universitySubCourse.js";
 
 // Load environment variables from .env file
 dotenv.config(); // Load environment variables from .env file
@@ -66,7 +66,7 @@ connectRedis()
         app.use("/api", courseRoutes);
         app.use("/api", subCourseRoutes);
         app.use("/api", universityRoutes);
-        app.use("/api", universitySubCourse);
+        app.use("/api", universitySubCourseRoutes);
 
         // Test route
         app.get("/", (req, res) => {

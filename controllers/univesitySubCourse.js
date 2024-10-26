@@ -1,17 +1,52 @@
 import z from 'zod';
 import UniversitySubCourse from '../models/UniversitySubCourse.js';
-import  { CACHE_KEYS, CACHE_TTL } from '../constants/cache.js';
+import { CACHE_KEYS, CACHE_TTL } from '../constants/cache.js';
+import mongoose from "mongoose";
 
 // Helper function to get cached data with fallback to DB
+
 const getCachedData = async (redisClient, key, fetchFn, ttl) => {
+
     const cachedData = await redisClient.get(key);
+
     if (cachedData) {
         return JSON.parse(cachedData);
     }
-    
+
     const data = await fetchFn();
     await redisClient.setEx(key, ttl, JSON.stringify(data));
     return data;
+};
+
+// Add university sub course
+export const addUniversitySubCourse = async (req, res) => {
+    try {
+        const redisClient = req.redisClient;
+
+        const { universityId, subCourseId, customFees, customDescription } = req.body;
+
+        const universitySubCourse = new UniversitySubCourse({
+            university: universityId,
+            subCourse: subCourseId,
+            customFees,
+            customDescription
+        });
+
+        const savedUniversitySubCourse = await universitySubCourse.save();
+
+        // Invalidate related caches
+        await Promise.all([
+            redisClient.del(CACHE_KEYS.UNIVERSITY_SUB_COURSES.ALL),
+            redisClient.del(CACHE_KEYS.UNIVERSITY_SUB_COURSES.BY_ID(savedUniversitySubCourse._id)), ,
+            redisClient.del(CACHE_KEYS.UNIVERSITIES.ALL),
+            redisClient.del(CACHE_KEYS.SUB_COURSES.ALL)
+        ]);
+
+        res.status(201).json({ message: 'University sub course added successfully', savedUniversitySubCourse });
+    } catch (error) {
+        console.error('Error adding university sub course:', error);
+        res.status(500).json({ error: 'Failed to add university sub course' });
+    }
 };
 
 // Get all university sub courses
@@ -21,7 +56,7 @@ export const getAllUniversitySubCourses = async (req, res) => {
         const cacheKey = CACHE_KEYS.UNIVERSITY_SUB_COURSES.ALL;
 
         const fetchFromDB = async () => {
-            return await UniversitySubCourse.aggregate([
+            const aggregationPipeline = [
                 {
                     $lookup: {
                         from: 'universities',
@@ -31,7 +66,7 @@ export const getAllUniversitySubCourses = async (req, res) => {
                     }
                 },
                 {
-                    $unwind: '$university'
+                    $unwind: { path: '$university', preserveNullAndEmptyArrays: true }
                 },
                 {
                     $lookup: {
@@ -42,26 +77,22 @@ export const getAllUniversitySubCourses = async (req, res) => {
                     }
                 },
                 {
-                    $unwind: '$baseSubCourse'
+                    $unwind: { path: '$baseSubCourse', preserveNullAndEmptyArrays: true }
                 },
                 {
                     $addFields: {
-                        fees: { 
-                            $ifNull: ['$customFees', '$baseSubCourse.fees'] 
-                        },
-                        description: { 
-                            $ifNull: ['$customDescription', '$baseSubCourse.description'] 
-                        },
-                        syllabus: { 
-                            $ifNull: ['$customSyllabus', '$baseSubCourse.syllabus'] 
-                        },
+                        fees: { $ifNull: ['$customFees', '$baseSubCourse.fees'] },
+                        description: { $ifNull: ['$customDescription', '$baseSubCourse.description'] },
+                        syllabus: { $ifNull: ['$customSyllabus', '$baseSubCourse.syllabus'] },
                         banners: {
                             $cond: {
                                 if: { $gt: [{ $size: { $ifNull: ['$customBanners', []] } }, 0] },
                                 then: '$customBanners',
                                 else: '$baseSubCourse.banners'
                             }
-                        }
+                        },
+                        subCourseName: '$baseSubCourse.subCourseName',
+                        subCourseShortName: '$baseSubCourse.subCourseShortName'
                     }
                 },
                 {
@@ -84,112 +115,111 @@ export const getAllUniversitySubCourses = async (req, res) => {
                         description: 1,
                         syllabus: 1,
                         banners: 1,
-                        customFees: 1,
-                        customDescription: 1,
-                        customSyllabus: 1,
-                        customBanners: 1
+                        subCourseName: 1,
+                        subCourseShortName: 1
                     }
                 }
-            ]);
+            ];
+
+            return await UniversitySubCourse.aggregate(aggregationPipeline);
         };
 
-        const universitySubCourses = await getCachedData(
-            redisClient, 
-            cacheKey, 
-            fetchFromDB, 
-            CACHE_TTL.MEDIUM
-        );
-
+        const universitySubCourses = await getCachedData(redisClient, cacheKey, fetchFromDB, CACHE_TTL.MEDIUM);
         res.status(200).json(universitySubCourses);
     } catch (err) {
-        console.error(err, "Error fetching university sub courses");
+        console.error("Error fetching university sub courses:", err);
         res.status(500).json({ error: err.message });
     }
 };
 
-// Get university sub course by ID
 export const getUniversitySubCourseById = async (req, res) => {
     try {
         const { id } = req.params;
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(400).json({ message: "Invalid ID format" });
-        }
 
-        const redisClient = req.redisClient;
-        const cacheKey = `${CACHE_KEYS.UNIVERSITY_SUB_COURSES.DETAIL}:${id}`;
-
-        const fetchFromDB = async () => {
-            const result = await UniversitySubCourse.aggregate([
-                {
-                    $match: { _id: new mongoose.Types.ObjectId(id) }
-                },
-                {
-                    $lookup: {
-                        from: 'universities',
-                        localField: 'university',
-                        foreignField: '_id',
-                        as: 'university'
-                    }
-                },
-                {
-                    $unwind: '$university'
-                },
-                {
-                    $lookup: {
-                        from: 'subcourses',
-                        localField: 'subCourse',
-                        foreignField: '_id',
-                        as: 'baseSubCourse'
-                    }
-                },
-                {
-                    $unwind: '$baseSubCourse'
-                },
-                {
-                    $addFields: {
-                        fees: { 
-                            $ifNull: ['$customFees', '$baseSubCourse.fees'] 
-                        },
-                        description: { 
-                            $ifNull: ['$customDescription', '$baseSubCourse.description'] 
-                        },
-                        syllabus: { 
-                            $ifNull: ['$customSyllabus', '$baseSubCourse.syllabus'] 
-                        },
-                        banners: {
-                            $cond: {
-                                if: { $gt: [{ $size: { $ifNull: ['$customBanners', []] } }, 0] },
-                                then: '$customBanners',
-                                else: '$baseSubCourse.banners'
-                            }
-                        }
-                    }
+        const aggregationPipeline = [
+            {
+                $match: { _id: new mongoose.Types.ObjectId(id) }
+            },
+            {
+                $lookup: {
+                    from: 'universities',
+                    localField: 'university',
+                    foreignField: '_id',
+                    as: 'university'
                 }
-            ]);
-
-            if (!result.length) {
-                throw new Error('University sub course not found');
+            },
+            {
+                $unwind: { path: '$university', preserveNullAndEmptyArrays: true }
+            },
+            {
+                $lookup: {
+                    from: 'subcourses',
+                    localField: 'subCourse',
+                    foreignField: '_id',
+                    as: 'baseSubCourse'
+                }
+            },
+            {
+                $unwind: { path: '$baseSubCourse', preserveNullAndEmptyArrays: true }
+            },
+            {
+                $addFields: {
+                    fees: { $ifNull: ['$customFees', '$baseSubCourse.fees'] },
+                    description: { $ifNull: ['$customDescription', '$baseSubCourse.description'] },
+                    syllabus: { $ifNull: ['$customSyllabus', '$baseSubCourse.syllabus'] },
+                    banners: {
+                        $cond: {
+                            if: { $gt: [{ $size: { $ifNull: ['$customBanners', []] } }, 0] },
+                            then: '$customBanners',
+                            else: '$baseSubCourse.banners'
+                        }
+                    },
+                    subCourseName: '$baseSubCourse.subCourseName',
+                    subCourseShortName: '$baseSubCourse.subCourseShortName'
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    university: {
+                        _id: 1,
+                        universityName: 1,
+                        universityShortName: 1
+                    },
+                    baseSubCourse: {
+                        _id: 1,
+                        name: 1,
+                        code: 1,
+                        duration: 1,
+                        eligibility: 1,
+                        coursetype: 1
+                    },
+                    fees: 1,
+                    description: 1,
+                    syllabus: 1,
+                    banners: 1,
+                    subCourseName: 1,
+                    subCourseShortName: 1
+                }
             }
+        ];
 
-            return result[0];
-        };
+        const result = await UniversitySubCourse.aggregate(aggregationPipeline);
 
-        const universitySubCourse = await getCachedData(
-            redisClient, 
-            cacheKey, 
-            fetchFromDB, 
-            CACHE_TTL.MEDIUM
-        );
-
-        res.status(200).json(universitySubCourse);
-    } catch (err) {
-        console.error(err, "Error fetching university sub course");
-        if (err.message === 'University sub course not found') {
-            return res.status(404).json({ message: err.message });
+        if (!result.length) {
+            return res.status(404).json({ error: "SubCourse not found" });
         }
-        res.status(500).json({ error: err.message });
+
+        return res.status(200).json(result[0]);
+    } catch (err) {
+        console.error("Error fetching sub-course by ID:", err);
+        return res.status(500).json({
+            error: err.message,
+            location: 'Check server logs for detailed error location'
+        });
     }
 };
+
 
 // Update university sub course
 export const updateUniversitySubCourse = async (req, res) => {
@@ -198,14 +228,12 @@ export const updateUniversitySubCourse = async (req, res) => {
 
     try {
         const { id } = req.params;
+        
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({ message: "Invalid ID format" });
         }
 
         const redisClient = req.redisClient;
-
-        // Validate request body
-        updateUniversitySubCourseSchema.parse(req.body);
 
         const universitySubCourse = await UniversitySubCourse.findById(id);
         if (!universitySubCourse) {
@@ -223,16 +251,17 @@ export const updateUniversitySubCourse = async (req, res) => {
         // Invalidate related caches
         await Promise.all([
             redisClient.del(CACHE_KEYS.UNIVERSITY_SUB_COURSES.ALL),
-            redisClient.del(CACHE_KEYS.UNIVERSITY_SUB_COURSES.BY_ID(id)),,
-            redisClient.del(CACHE_KEYS.UNIVERSITIES.ALL)
+            redisClient.del(CACHE_KEYS.UNIVERSITY_SUB_COURSES.BY_ID(id)), ,
+            redisClient.del(CACHE_KEYS.UNIVERSITIES.ALL),
+            redisClient.del(CACHE_KEYS.SUB_COURSES.ALL)
         ]);
 
         await session.commitTransaction();
         session.endSession();
 
-        res.status(200).json({ 
-            message: "University sub course updated successfully", 
-            universitySubCourse 
+        res.status(200).json({
+            message: "University sub course updated successfully",
+            universitySubCourse
         });
     } catch (err) {
         await session.abortTransaction();
@@ -252,7 +281,7 @@ export const deleteUniversitySubCourse = async (req, res) => {
     session.startTransaction();
 
     try {
-        const { id } = req.body;
+        const { id } = req.params;
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({ message: "Invalid ID format" });
         }
@@ -269,15 +298,16 @@ export const deleteUniversitySubCourse = async (req, res) => {
         // Invalidate related caches
         await Promise.all([
             redisClient.del(CACHE_KEYS.UNIVERSITY_SUB_COURSES.ALL),
-            redisClient.del(CACHE_KEYS.UNIVERSITY_SUB_COURSES.BY_ID(id)),,
-            redisClient.del(CACHE_KEYS.UNIVERSITIES.ALL)
+            redisClient.del(CACHE_KEYS.UNIVERSITY_SUB_COURSES.BY_ID(id)), ,
+            redisClient.del(CACHE_KEYS.UNIVERSITIES.ALL),
+            redisClient.del(CACHE_KEYS.SUB_COURSES.ALL)
         ]);
 
         await session.commitTransaction();
         session.endSession();
 
-        res.status(200).json({ 
-            message: "University sub course deleted successfully" 
+        res.status(200).json({
+            message: "University sub course deleted successfully", id
         });
     } catch (err) {
         await session.abortTransaction();

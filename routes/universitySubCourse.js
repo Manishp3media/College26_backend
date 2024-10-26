@@ -1,17 +1,22 @@
 import express from "express";
-import SubCourse from "../models/SubCourse.js";
-import { getAllUniversitySubCourses, getUniversitySubCourseById, updateUniversitySubCourse, deleteUniversitySubCourse } from "../controllers/univesitySubCourse.js";
+import { addUniversitySubCourse, getAllUniversitySubCourses,  updateUniversitySubCourse, deleteUniversitySubCourse, getUniversitySubCourseById } from "../controllers/univesitySubCourse.js";
+import authMiddleware from "../middlewares/auth.js"
 
 const router = express.Router();
 
+// Add University Sub-Course
+router.post("/add/university/subcourse", authMiddleware("admin"), addUniversitySubCourse);
+
 // Get All University Sub-Courses
-router.get("/get/university/subcourses", getAllUniversitySubCourses);
+router.get("/get/university/subcourses", authMiddleware("admin"), getAllUniversitySubCourses);
 
 // Get University Sub-Course by ID
 router.get("/get/university/subcourse/:id", getUniversitySubCourseById);
 
-// Update University Sub-Course
+//Update University Sub-Course
 router.patch("/update/university/subcourse/:id", updateUniversitySubCourse);
 
 // Delete University Sub-Course
 router.delete("/delete/university/subcourse/:id", deleteUniversitySubCourse);
+
+export default router;

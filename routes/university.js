@@ -7,9 +7,6 @@ const router = express.Router();
 // Add University
 router.post("/add/university", authMiddleware("admin"), addUniversity);
 
-// Get University
-router.get("/get/university/:id", authMiddleware("admin"), getUniversityById);
-
 // Get Universities
 router.get("/get/universities", authMiddleware("admin"), getAllUniversities);
 
@@ -18,6 +15,9 @@ router.patch("/edit/university", authMiddleware("admin"), editUniversity);
 
 // Delete University
 router.delete("/delete/university", authMiddleware("admin"), deleteUniversity);
+
+// Get University
+router.get("/get/university", authMiddleware("admin"), getUniversityById);
 
 
 export default router;

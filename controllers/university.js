@@ -296,7 +296,7 @@ export const getAllUniversities = async (req, res) => {
 // Get University by ID
 export const getUniversityById = async (req, res) => {
     try {
-        const { id } = req.params;
+        const { id } = req.body;
         const redisClient = req.redisClient;
         const cacheKey = `${CACHE_KEYS.UNIVERSITIES.BY_ID}:${id}`;
 
