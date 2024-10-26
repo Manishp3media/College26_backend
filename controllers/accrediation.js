@@ -49,7 +49,7 @@ export const getAccrediation = async (req, res) => {
 
         await redisClient.setEx(
             CACHE_KEYS.ACCREDITATION.ALL, 
-            CACHE_TTL.LONG, 
+            CACHE_TTL.MEDIUM, 
             JSON.stringify(accrediation));
        
         res.status(200).json(accrediation);

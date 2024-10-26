@@ -15,76 +15,90 @@ const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 // Helper function to fetch ids from redis and validate incoming ids
 const fetchAndCacheIDs = async (redisClient, key, model, ids, ttl) => {
-  // First validate that all IDs are valid ObjectIds
-  const invalidIds = ids.filter(id => !isValidObjectId(id));
-  if (invalidIds.length > 0) {
-      throw new Error(`Invalid ObjectIds found: ${invalidIds.join(', ')}`);
-  }
+    // First validate that all IDs are valid ObjectIds
+    const invalidIds = ids.filter(id => !isValidObjectId(id));
+    if (invalidIds.length > 0) {
+        throw new Error(`Invalid ObjectIds found: ${invalidIds.join(', ')}`);
+    }
 
-  const cachedData = await redisClient.get(key);
-  if (cachedData) {
-      const parsed = JSON.parse(cachedData);
-      // Filter to only include requested IDs
-      return parsed.filter(item => ids.includes(item._id.toString()));
-  } else {
-      const result = await model.find({ _id: { $in: ids } });
-      // Filter to only include requested IDs
-      const filteredResult = result.filter(item => ids.includes(item._id.toString()));
-      await redisClient.setEx(key, ttl, JSON.stringify(filteredResult));
-      return filteredResult;
-  }
+    const cachedData = await redisClient.get(key);
+    if (cachedData) {
+        const parsed = JSON.parse(cachedData);
+        // Filter to only include requested IDs
+        return parsed.filter(item => ids.includes(item._id.toString()));
+    } else {
+        const result = await model.find({ _id: { $in: ids } });
+        // Filter to only include requested IDs
+        const filteredResult = result.filter(item => ids.includes(item._id.toString()));
+        await redisClient.setEx(key, ttl, JSON.stringify(filteredResult));
+        return filteredResult;
+    }
+};
+
+// Helper function to validate IDs directly from MongoDB
+const validateIDs = async (model, ids) => {
+    // First validate that all IDs are valid ObjectIds
+    const invalidIds = ids.filter(id => !isValidObjectId(id));
+    if (invalidIds.length > 0) {
+        throw new Error(`Invalid ObjectIds found: ${invalidIds.join(', ')}`);
+    }
+
+    const result = await model.find({ _id: { $in: ids } });
+    // Filter to only include requested IDs
+    return result.filter(item => ids.includes(item._id.toString()));
 };
 
 // Add University
 export const addUniversity = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
-  
+
     try {
         const redisClient = req.redisClient;
-  
+
         // Validate request body
         addUniversityValidationSchema.parse(req.body);
-        const { 
-            universityName, 
-            universityShortName, 
-            tagLine, 
-            universityLink, 
-            about, 
-            accrediations, 
+        const {
+            universityName,
+            universityShortName,
+            tagLine,
+            universityLink,
+            about,
+            accrediations,
             universitySubCourses, // This will now be an array of objects with customization data
-            admissionProcess, 
-            examinationPattern, 
-            placementPartners, 
-            socialMediaLinks, 
-            amenities 
+            admissionProcess,
+            examinationPattern,
+            placementPartners,
+            socialMediaLinks,
+            amenities
         } = req.body;
-  
+
         // Convert name to lowercase
         const lowerCaseUniversityName = universityName.toLowerCase();
         const lowerCaseUniversityShortName = universityShortName.toLowerCase();
-  
+
         // Check if university exists
-        const existingUniversity = await University.findOne({ 
-            $or: [{ universityName: lowerCaseUniversityName }, { universityShortName: lowerCaseUniversityShortName }] 
+        const existingUniversity = await University.findOne({
+            $or: [{ universityName: lowerCaseUniversityName }, { universityShortName: lowerCaseUniversityShortName }]
         });
         if (existingUniversity) {
             return res.status(409).json({ message: "University already exists" });
         }
 
         // Validate that all subcourse IDs exist
-        const subCourseIds = universitySubCourses.map(course => 
+        const subCourseIds = universitySubCourses.map(course =>
             typeof course === 'string' ? course : course.subCourseId
         );
-        
+
+        // Validate all IDs directly from MongoDB
         const [validAccrediations, validSubCourses, validSocialMediaLinks, validPlacementPartners, validAmenities] = await Promise.all([
-            fetchAndCacheIDs(redisClient, CACHE_KEYS.ACCREDITATION.ALL, Accrediation, accrediations, CACHE_TTL.MEDIUM),
-            fetchAndCacheIDs(redisClient, CACHE_KEYS.SUB_COURSES.ALL, SubCourse, subCourseIds, CACHE_TTL.MEDIUM),
-            fetchAndCacheIDs(redisClient, CACHE_KEYS.SOCIAL_MEDIA.ALL, SocialMedia, Array.isArray(socialMediaLinks) ? socialMediaLinks : [socialMediaLinks], CACHE_TTL.MEDIUM),
-            fetchAndCacheIDs(redisClient, CACHE_KEYS.PLACEMENT_PARTNERS.ALL, PlacementPartner, placementPartners, CACHE_TTL.MEDIUM),
-            fetchAndCacheIDs(redisClient, CACHE_KEYS.AMENITIES.ALL, Amenity, amenities, CACHE_TTL.MEDIUM)
+            validateIDs(Accrediation, accrediations),
+            validateIDs(SubCourse, subCourseIds),
+            validateIDs(SocialMedia, Array.isArray(socialMediaLinks) ? socialMediaLinks : [socialMediaLinks]),
+            validateIDs(PlacementPartner, placementPartners),
+            validateIDs(Amenity, amenities)
         ]);
-  
+
         // Validation checks
         if (validAccrediations.length !== accrediations.length) {
             return res.status(400).json({ message: "Invalid accreditation IDs" });
@@ -101,7 +115,7 @@ export const addUniversity = async (req, res) => {
         if (validAmenities.length !== amenities.length) {
             return res.status(400).json({ message: "Invalid amenity IDs" });
         }
-  
+
         // Create new University
         const newUniversity = new University({
             universityName: lowerCaseUniversityName,
@@ -116,9 +130,9 @@ export const addUniversity = async (req, res) => {
             socialMediaLinks: validSocialMediaLinks,
             amenities: validAmenities
         });
-  
+
         await newUniversity.save({ session });
-        
+
         // Process university sub courses with custom data
         const universitySubCoursesToSave = universitySubCourses.map(course => {
             // Handle both string (just ID) and object (with custom data) formats
@@ -138,21 +152,21 @@ export const addUniversity = async (req, res) => {
                 // customBanners: course.customBanners
             };
         });
-  
+
         // Save all university sub courses
         await UniversitySubCourse.insertMany(universitySubCoursesToSave, { session });
-  
+
         // Invalidate the university cache
         redisClient.del(CACHE_KEYS.UNIVERSITIES.ALL);
-  
+
         await session.commitTransaction();
         session.endSession();
-  
-        res.status(201).json({ 
-            message: "University and associated sub-courses added successfully", 
-            newUniversity 
+
+        res.status(201).json({
+            message: "University and associated sub-courses added successfully",
+            newUniversity
         });
-  
+
     } catch (err) {
         await session.abortTransaction();
         session.endSession();
@@ -211,26 +225,26 @@ export const getAllUniversities = async (req, res) => {
                                 mergedCourse: {
                                     _id: '$_id',
                                     university: '$university',
-                                    name: { 
+                                    name: {
                                         $ifNull: ['$customName', '$baseSubCourse.subCourseName']
                                     },
-                                    shortName: { 
+                                    shortName: {
                                         $ifNull: ['$customShortName', '$baseSubCourse.subCourseShortName']
                                     },
                                     code: '$baseSubCourse.code',
                                     duration: '$baseSubCourse.duration',
                                     eligibility: '$baseSubCourse.eligibility',
                                     coursetype: '$baseSubCourse.coursetype',
-                                    fees: { 
+                                    fees: {
                                         $ifNull: ['$customFees', '$baseSubCourse.fees']
                                     },
-                                    description: { 
+                                    description: {
                                         $ifNull: ['$customDescription', '$baseSubCourse.subCourseDescription']
                                     },
-                                    syllabus: { 
+                                    syllabus: {
                                         $ifNull: ['$customSyllabus', '$baseSubCourse.syllabus']
                                     },
-                                    banners: { 
+                                    banners: {
                                         $cond: {
                                             if: { $gt: [{ $size: { $ifNull: ['$customBanners', []] } }, 0] },
                                             then: '$customBanners',
@@ -345,25 +359,25 @@ export const getUniversityById = async (req, res) => {
                                 mergedCourse: {
                                     _id: '$_id',
                                     university: '$university',
-                                    name: { 
+                                    name: {
                                         $ifNull: ['$customName', '$baseSubCourse.subCourseName']
                                     },
-                                    shortName: { 
+                                    shortName: {
                                         $ifNull: ['$customShortName', '$baseSubCourse.subCourseShortName']
                                     },
                                     duration: '$baseSubCourse.duration',
                                     eligibility: '$baseSubCourse.eligibility',
                                     coursetype: '$baseSubCourse.coursetype',
-                                    fees: { 
+                                    fees: {
                                         $ifNull: ['$customFees', '$baseSubCourse.fees']
                                     },
-                                    description: { 
+                                    description: {
                                         $ifNull: ['$customDescription', '$baseSubCourse.subCourseDescription']
                                     },
-                                    syllabus: { 
+                                    syllabus: {
                                         $ifNull: ['$customSyllabus', '$baseSubCourse.syllabus']
                                     },
-                                    banners: { 
+                                    banners: {
                                         $cond: {
                                             if: { $gt: [{ $size: { $ifNull: ['$customBanners', []] } }, 0] },
                                             then: '$customBanners',
@@ -441,8 +455,8 @@ export const editUniversity = async (req, res) => {
         const redisClient = req.redisClient;
         const { id } = req.body;
 
-         // Invalidate caches before making any changes
-         await Promise.all([
+        // Invalidate caches before making any changes
+        await Promise.all([
             redisClient.del(`${CACHE_KEYS.UNIVERSITIES.BY_ID}:${id}`),
             redisClient.del(CACHE_KEYS.UNIVERSITIES.ALL)
         ]);
@@ -455,19 +469,19 @@ export const editUniversity = async (req, res) => {
 
         // Validate input using Zod schema
         addUniversityValidationSchema.parse(req.body);
-        const { 
-            universityName, 
-            universityShortName, 
-            tagLine, 
-            universityLink, 
-            about, 
-            accrediations, 
-            universitySubCourses, 
-            admissionProcess, 
-            examinationPattern, 
-            placementPartners, 
-            socialMediaLinks, 
-            amenities 
+        const {
+            universityName,
+            universityShortName,
+            tagLine,
+            universityLink,
+            about,
+            accrediations,
+            universitySubCourses,
+            admissionProcess,
+            examinationPattern,
+            placementPartners,
+            socialMediaLinks,
+            amenities
         } = req.body;
 
         const updateFields = {};
@@ -484,59 +498,59 @@ export const editUniversity = async (req, res) => {
         if (amenities) updateFields.amenities = amenities;
 
         // Check for duplicate university names
-        const existingUniversity = await University.findOne({ 
+        const existingUniversity = await University.findOne({
             _id: { $ne: id },
             $or: [
                 { universityName: updateFields.universityName },
                 { universityShortName: updateFields.universityShortName }
-            ] 
+            ]
         });
         if (existingUniversity) {
             return res.status(409).json({ message: "A university with this name or short name already exists." });
         }
 
-        // Extract subcourse IDs for validation
-        const subCourseIds = universitySubCourses?.map(course => 
+        // Validate that all subcourse IDs exist
+        const subCourseIds = universitySubCourses.map(course =>
             typeof course === 'string' ? course : course.subCourseId
-        ) || [];
+        );
 
-        // Validate IDs for related models if they are provided
+        // Validate all IDs directly from MongoDB
         const [validAccrediations, validSubCourses, validSocialMediaLinks, validPlacementPartners, validAmenities] = await Promise.all([
-            accrediations ? fetchAndCacheIDs(redisClient, CACHE_KEYS.ACCREDITATION.ALL, Accrediation, accrediations, CACHE_TTL.MEDIUM) : [],
-            subCourseIds.length ? fetchAndCacheIDs(redisClient, CACHE_KEYS.SUB_COURSES.ALL, SubCourse, subCourseIds, CACHE_TTL.MEDIUM) : [],
-            socialMediaLinks ? fetchAndCacheIDs(redisClient, CACHE_KEYS.SOCIAL_MEDIA.ALL, SocialMedia, Array.isArray(socialMediaLinks) ? socialMediaLinks : [socialMediaLinks], CACHE_TTL.MEDIUM) : [],
-            placementPartners ? fetchAndCacheIDs(redisClient, CACHE_KEYS.PLACEMENT_PARTNERS.ALL, PlacementPartner, placementPartners, CACHE_TTL.MEDIUM) : [],
-            amenities ? fetchAndCacheIDs(redisClient, CACHE_KEYS.AMENITIES.ALL, Amenity, amenities, CACHE_TTL.MEDIUM) : []
+            validateIDs(Accrediation, accrediations),
+            validateIDs(SubCourse, subCourseIds),
+            validateIDs(SocialMedia, Array.isArray(socialMediaLinks) ? socialMediaLinks : [socialMediaLinks]),
+            validateIDs(PlacementPartner, placementPartners),
+            validateIDs(Amenity, amenities)
         ]);
 
         // Validation checks
-        if (accrediations && validAccrediations.length !== accrediations.length) {
+        if (validAccrediations.length !== accrediations.length) {
             return res.status(400).json({ message: "Invalid accreditation IDs" });
         }
-        if (subCourseIds.length && validSubCourses.length !== subCourseIds.length) {
+        if (validSubCourses.length !== subCourseIds.length) {
             return res.status(400).json({ message: "Invalid sub-course IDs" });
         }
-        if (socialMediaLinks && validSocialMediaLinks.length !== socialMediaLinks.length) {
+        if (validSocialMediaLinks.length !== socialMediaLinks.length) {
             return res.status(400).json({ message: "Invalid social media link IDs" });
         }
-        if (placementPartners && validPlacementPartners.length !== placementPartners.length) {
+        if (validPlacementPartners.length !== placementPartners.length) {
             return res.status(400).json({ message: "Invalid placement partner IDs" });
         }
-        if (amenities && validAmenities.length !== amenities.length) {
+        if (validAmenities.length !== amenities.length) {
             return res.status(400).json({ message: "Invalid amenity IDs" });
         }
 
         // Update the university
         const updatedUniversity = await University.findByIdAndUpdate(
-            id, 
-            { $set: updateFields }, 
+            id,
+            { $set: updateFields },
             { new: true, session }
         );
 
         if (universitySubCourses) {
             // Delete existing university subcourses
-            await UniversitySubCourse.deleteMany({ 
-                university: id 
+            await UniversitySubCourse.deleteMany({
+                university: id
             }, { session });
 
             // Create new university subcourses with custom data
@@ -570,14 +584,14 @@ export const editUniversity = async (req, res) => {
 
         // Cache the updated university data
         await redisClient.setEx(
-            CACHE_KEYS.UNIVERSITIES.BY_ID(id), 
-            CACHE_TTL.LONG, 
+            CACHE_KEYS.UNIVERSITIES.BY_ID(id),
+            CACHE_TTL.LONG,
             JSON.stringify(updatedUniversity)
         );
 
-        res.status(200).json({ 
-            message: "University updated successfully", 
-            updatedUniversity 
+        res.status(200).json({
+            message: "University updated successfully",
+            updatedUniversity
         });
 
     } catch (err) {
@@ -595,28 +609,28 @@ export const editUniversity = async (req, res) => {
 
 // Delete University
 export const deleteUniversity = async (req, res) => {
-  try {
-      const redisClient = req.redisClient;
-      const { id } = req.body;
+    try {
+        const redisClient = req.redisClient;
+        const { id } = req.body;
 
-      // Validate ID
-      if (!isValidObjectId(id)) {
-          return res.status(400).json({ message: "Invalid university ID" });
-      }
+        // Validate ID
+        if (!isValidObjectId(id)) {
+            return res.status(400).json({ message: "Invalid university ID" });
+        }
 
-      const deletedUniversity = await University.findByIdAndDelete(id);
+        const deletedUniversity = await University.findByIdAndDelete(id);
 
-      if (!deletedUniversity) {
-          return res.status(404).json({ message: "University not found" });
-      }
+        if (!deletedUniversity) {
+            return res.status(404).json({ message: "University not found" });
+        }
 
-      // Invalidate the university cache after deletion
-      await redisClient.del(CACHE_KEYS.UNIVERSITIES.BY_ID(id));
-      redisClient.del(CACHE_KEYS.UNIVERSITIES.ALL); // Optionally clear all universities cache
+        // Invalidate the university cache after deletion
+        await redisClient.del(CACHE_KEYS.UNIVERSITIES.BY_ID(id));
+        redisClient.del(CACHE_KEYS.UNIVERSITIES.ALL); // Optionally clear all universities cache
 
-      res.status(200).json({ message: "University deleted successfully", id });
-  } catch (err) {
-      console.error(err, "Error deleting university");
-      res.status(500).json({ error: err.message });
-  }
+        res.status(200).json({ message: "University deleted successfully", id });
+    } catch (err) {
+        console.error(err, "Error deleting university");
+        res.status(500).json({ error: err.message });
+    }
 };

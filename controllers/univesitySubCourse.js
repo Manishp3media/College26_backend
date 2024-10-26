@@ -80,6 +80,17 @@ export const getAllUniversitySubCourses = async (req, res) => {
                     $unwind: { path: '$baseSubCourse', preserveNullAndEmptyArrays: true }
                 },
                 {
+                    $lookup: {
+                        from: 'courses',
+                        localField: 'baseSubCourse.course',
+                        foreignField: '_id',
+                        as: 'courseDetails'
+                    }
+                },
+                {
+                    $unwind: { path: '$courseDetails', preserveNullAndEmptyArrays: true }
+                },
+                {
                     $addFields: {
                         fees: { $ifNull: ['$customFees', '$baseSubCourse.fees'] },
                         description: { $ifNull: ['$customDescription', '$baseSubCourse.description'] },
@@ -92,7 +103,8 @@ export const getAllUniversitySubCourses = async (req, res) => {
                             }
                         },
                         subCourseName: '$baseSubCourse.subCourseName',
-                        subCourseShortName: '$baseSubCourse.subCourseShortName'
+                        subCourseShortName: '$baseSubCourse.subCourseShortName',
+                        courseName: '$courseDetails.courseName' 
                     }
                 },
                 {
@@ -116,7 +128,8 @@ export const getAllUniversitySubCourses = async (req, res) => {
                         syllabus: 1,
                         banners: 1,
                         subCourseName: 1,
-                        subCourseShortName: 1
+                        subCourseShortName: 1,
+                        courseDetails: 1
                     }
                 }
             ];
@@ -163,6 +176,17 @@ export const getUniversitySubCourseById = async (req, res) => {
                 $unwind: { path: '$baseSubCourse', preserveNullAndEmptyArrays: true }
             },
             {
+                $lookup: {
+                    from: 'courses',
+                    localField: 'baseSubCourse.course',
+                    foreignField: '_id',
+                    as: 'courseDetails'
+                }
+            },
+            {
+                $unwind: { path: '$courseDetails', preserveNullAndEmptyArrays: true }
+            },
+            {
                 $addFields: {
                     fees: { $ifNull: ['$customFees', '$baseSubCourse.fees'] },
                     description: { $ifNull: ['$customDescription', '$baseSubCourse.description'] },
@@ -175,7 +199,8 @@ export const getUniversitySubCourseById = async (req, res) => {
                         }
                     },
                     subCourseName: '$baseSubCourse.subCourseName',
-                    subCourseShortName: '$baseSubCourse.subCourseShortName'
+                    subCourseShortName: '$baseSubCourse.subCourseShortName',
+                    courseName: '$courseDetails.courseName' 
                 }
             },
             {
@@ -199,7 +224,8 @@ export const getUniversitySubCourseById = async (req, res) => {
                     syllabus: 1,
                     banners: 1,
                     subCourseName: 1,
-                    subCourseShortName: 1
+                    subCourseShortName: 1,
+                    courseDetails: 1
                 }
             }
         ];
