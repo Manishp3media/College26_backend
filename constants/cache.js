@@ -38,7 +38,11 @@ export const CACHE_KEYS = {
     UNIVERSITIES: {
         ALL: 'cache: universities.all',
         BY_ID: (id) => `cache:universities:${id}`,
-    }
+    },
+    UNIVERSITY_SUB_COURSES: {
+        ALL: 'cache:university_sub_courses:all',
+        BY_ID: (id) => `cache:university_sub_courses:${id}`,
+    },
 };
 
 export const CACHE_TTL = {

@@ -14,15 +14,23 @@ const universitySubCourseSchema = new mongoose.Schema({
     // Customizable fields with getters that fall back to SubCourse values
     customFees: {
         type: Number,
-        default: undefined
+        default: null  // Changed from undefined to null for better MongoDB handling
     },
     customDescription: {
         type: String,
-        default: undefined
+        default: null
     },
     customSyllabus: {
         type: String,
-        default: undefined
+        default: null
+    },
+    customName: {
+        type: String,
+        default: null
+    },
+    customShortName: {
+        type: String,
+        default: null
     },
     customBanners: [{
         id: { type: String },
@@ -30,18 +38,26 @@ const universitySubCourseSchema = new mongoose.Schema({
     }]
 });
 
-// Virtual getters to handle fallback to SubCourse values
+// Fixed the typo in the fees virtual getter
 universitySubCourseSchema.virtual("fees").get(function () {
-    return this.customFess !== undefined ? this.customFees : this.subCourse.fees;
+    console.log('Virtual Getter Debug:', {
+        docId: this._id,
+        customFees: this.customFees,
+        subCourseFees: this.subCourse?.fees,
+        customFeesType: typeof this.customFees,
+        isCustomFeesNull: this.customFees === null,
+        isCustomFeesUndefined: this.customFees === undefined
+    });
+    return this.customFees !== null ? this.customFees : this.subCourse?.fees;
 });
 
 universitySubCourseSchema.virtual("description").get(function () {
-    return this.customDescription !== undefined ? this.customDescription : this.subCourse.description;
+    console.log(`Custom Description for ${this._id}:`, this.customDescription);
+    return this.customDescription !== null ? this.customDescription : this.subCourse?.description;
 });
 
-
 universitySubCourseSchema.virtual('syllabus').get(function() {
-    return this.customSyllabus !== undefined ? this.customSyllabus : this.subCourse?.syllabus;
+    return this.customSyllabus !== null ? this.customSyllabus : this.subCourse?.syllabus;
 });
 
 universitySubCourseSchema.virtual('banners').get(function() {
@@ -52,4 +68,4 @@ universitySubCourseSchema.virtual('banners').get(function() {
 universitySubCourseSchema.set('toJSON', { virtuals: true });
 universitySubCourseSchema.set('toObject', { virtuals: true });
 
-export default mongoose.model("UniversitySubCourse", universitySubCourseSchema);
+export default mongoose.models.UniversitySubCourse || mongoose.model("UniversitySubCourse", universitySubCourseSchema);

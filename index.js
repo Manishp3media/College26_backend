@@ -15,6 +15,7 @@ import academicLevelRoutes from "./routes/academicLevel.js";
 import courseRoutes from "./routes/course.js";
 import subCourseRoutes from "./routes/subCourse.js";
 import universityRoutes from "./routes/university.js";
+import universitySubCourse from "./models/UniversitySubCourse.js";
 
 // Load environment variables from .env file
 dotenv.config(); // Load environment variables from .env file
@@ -65,6 +66,7 @@ connectRedis()
         app.use("/api", courseRoutes);
         app.use("/api", subCourseRoutes);
         app.use("/api", universityRoutes);
+        app.use("/api", universitySubCourse);
 
         // Test route
         app.get("/", (req, res) => {
@@ -77,7 +79,7 @@ connectRedis()
             .then(() => {
                 console.log("MongoDB connected successfully");
                 // Server listening should be inside this block
-                const PORT = process.env.PORT || 5000;
+                const PORT = process.env.PORT;
                 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
             })
             .catch((error) => console.log(`${error} did not connect`));

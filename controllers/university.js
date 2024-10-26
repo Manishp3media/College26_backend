@@ -8,7 +8,7 @@ import z from "zod";
 import { addUniversityValidationSchema } from "../validations/University.js";
 import { CACHE_KEYS, CACHE_TTL } from "../constants/cache.js";
 import mongoose from "mongoose";
-import UniversitySubCourse from "../models/universitySubCourse.js";
+import UniversitySubCourse from "../models/UniversitySubCourse.js";
 
 // Helper function to validate MongoDB ObjectIds
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
@@ -208,44 +208,35 @@ export const getAllUniversities = async (req, res) => {
                         },
                         {
                             $addFields: {
-                                // Merge base course fields with any custom overrides
                                 mergedCourse: {
                                     _id: '$_id',
                                     university: '$university',
-                                    name: '$baseSubCourse.name',
+                                    name: { 
+                                        $ifNull: ['$customName', '$baseSubCourse.subCourseName']
+                                    },
+                                    shortName: { 
+                                        $ifNull: ['$customShortName', '$baseSubCourse.subCourseShortName']
+                                    },
                                     code: '$baseSubCourse.code',
                                     duration: '$baseSubCourse.duration',
                                     eligibility: '$baseSubCourse.eligibility',
                                     coursetype: '$baseSubCourse.coursetype',
-                                    // Use custom values only if they exist
                                     fees: { 
-                                        $cond: {
-                                            if: { $ifNull: ['$customFees', false] },
-                                            then: '$customFees',
-                                            else: '$baseSubCourse.fees'
-                                        }
+                                        $ifNull: ['$customFees', '$baseSubCourse.fees']
                                     },
                                     description: { 
-                                        $cond: {
-                                            if: { $ifNull: ['$customDescription', false] },
-                                            then: '$customDescription',
-                                            else: '$baseSubCourse.description'
-                                        }
+                                        $ifNull: ['$customDescription', '$baseSubCourse.subCourseDescription']
                                     },
-                                    // syllabus: { 
-                                    //     $cond: {
-                                    //         if: { $ifNull: ['$customSyllabus', false] },
-                                    //         then: '$customSyllabus',
-                                    //         else: '$baseSubCourse.syllabus'
-                                    //     }
-                                    // },
-                                    // banners: { 
-                                    //     $cond: {
-                                    //         if: { $gt: [{ $size: { $ifNull: ['$customBanners', []] } }, 0] },
-                                    //         then: '$customBanners',
-                                    //         else: '$baseSubCourse.banners'
-                                    //     }
-                                    // }
+                                    syllabus: { 
+                                        $ifNull: ['$customSyllabus', '$baseSubCourse.syllabus']
+                                    },
+                                    banners: { 
+                                        $cond: {
+                                            if: { $gt: [{ $size: { $ifNull: ['$customBanners', []] } }, 0] },
+                                            then: '$customBanners',
+                                            else: '$baseSubCourse.banners'
+                                        }
+                                    }
                                 }
                             }
                         },
@@ -301,6 +292,146 @@ export const getAllUniversities = async (req, res) => {
     }
 };
 
+
+// Get University by ID
+export const getUniversityById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const redisClient = req.redisClient;
+        const cacheKey = `${CACHE_KEYS.UNIVERSITIES.BY_ID}:${id}`;
+
+        // Check if cached data exists
+        const cachedUniversity = await redisClient.get(cacheKey);
+        if (cachedUniversity) {
+            return res.status(200).json(JSON.parse(cachedUniversity));
+        }
+
+        // Aggregation pipeline to get a specific university by ID
+        const university = await University.aggregate([
+            {
+                $match: { _id: new mongoose.Types.ObjectId(id) }
+            },
+            {
+                $lookup: {
+                    from: 'accrediations',
+                    localField: 'accrediations',
+                    foreignField: '_id',
+                    as: 'accrediations',
+                },
+            },
+            {
+                $lookup: {
+                    from: 'universitysubcourses',
+                    let: { universityId: '$_id' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: { $eq: ['$university', '$$universityId'] }
+                            }
+                        },
+                        {
+                            $lookup: {
+                                from: 'subcourses',
+                                localField: 'subCourse',
+                                foreignField: '_id',
+                                as: 'baseSubCourse'
+                            }
+                        },
+                        {
+                            $unwind: '$baseSubCourse'
+                        },
+                        {
+                            $addFields: {
+                                mergedCourse: {
+                                    _id: '$_id',
+                                    university: '$university',
+                                    name: { 
+                                        $ifNull: ['$customName', '$baseSubCourse.subCourseName']
+                                    },
+                                    shortName: { 
+                                        $ifNull: ['$customShortName', '$baseSubCourse.subCourseShortName']
+                                    },
+                                    duration: '$baseSubCourse.duration',
+                                    eligibility: '$baseSubCourse.eligibility',
+                                    coursetype: '$baseSubCourse.coursetype',
+                                    fees: { 
+                                        $ifNull: ['$customFees', '$baseSubCourse.fees']
+                                    },
+                                    description: { 
+                                        $ifNull: ['$customDescription', '$baseSubCourse.subCourseDescription']
+                                    },
+                                    syllabus: { 
+                                        $ifNull: ['$customSyllabus', '$baseSubCourse.syllabus']
+                                    },
+                                    banners: { 
+                                        $cond: {
+                                            if: { $gt: [{ $size: { $ifNull: ['$customBanners', []] } }, 0] },
+                                            then: '$customBanners',
+                                            else: '$baseSubCourse.banners'
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            $replaceRoot: { newRoot: '$mergedCourse' }
+                        }
+                    ],
+                    as: 'universitySubCourses',
+                },
+            },
+            {
+                $lookup: {
+                    from: 'placementpartners',
+                    localField: 'placementPartners',
+                    foreignField: '_id',
+                    as: 'placementPartners',
+                },
+            },
+            {
+                $lookup: {
+                    from: 'socialmedias',
+                    localField: 'socialMediaLinks',
+                    foreignField: '_id',
+                    as: 'socialMediaLinks',
+                },
+            },
+            {
+                $lookup: {
+                    from: 'amenities',
+                    localField: 'amenities',
+                    foreignField: '_id',
+                    as: 'amenities',
+                },
+            },
+            {
+                $project: {
+                    __v: 0,
+                    'accrediations.__v': 0,
+                    'placementPartners.__v': 0,
+                    'socialMediaLinks.__v': 0,
+                    'amenities.__v': 0
+                }
+            }
+        ]);
+
+        // If no university is found, return a 404 error
+        if (!university.length) {
+            return res.status(404).json({ message: 'University not found' });
+        }
+
+        // Cache the university data
+        await redisClient.setEx(cacheKey, CACHE_TTL.MEDIUM, JSON.stringify(university[0]));
+
+        res.status(200).json(university[0]);
+    } catch (err) {
+        console.error(err, "Error fetching university by ID");
+        res.status(500).json({ error: err.message });
+    }
+};
+
+
+
 // Edit University
 export const editUniversity = async (req, res) => {
     const session = await mongoose.startSession();
@@ -309,6 +440,12 @@ export const editUniversity = async (req, res) => {
     try {
         const redisClient = req.redisClient;
         const { id } = req.body;
+
+         // Invalidate caches before making any changes
+         await Promise.all([
+            redisClient.del(`${CACHE_KEYS.UNIVERSITIES.BY_ID}:${id}`),
+            redisClient.del(CACHE_KEYS.UNIVERSITIES.ALL)
+        ]);
 
         // Check if university exists
         const university = await University.findById(id);
