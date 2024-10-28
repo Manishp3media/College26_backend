@@ -38,7 +38,7 @@ const userSchema = new mongoose.Schema({
     city: {
         type: String
     },
-    qualitifcation: {
+    qualification: {
         type: String
     },
 

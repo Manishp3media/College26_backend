@@ -1,7 +1,7 @@
 import zod from "zod";
 
 // Signup Validation
-export const userSignupShema = zod.object({
+export const userSignupSchema = zod.object({
     fullName: zod.string().min(1, "Name is required"),
     mobileNumber: zod.string().min(1, "Mobile number is required"),
     email: zod.string().email("Invalid email address"),
@@ -18,7 +18,7 @@ export const userSignupShema = zod.object({
 });
 
 // Signin Validation
-export const userSigninShema = zod.object({
+export const userSigninSchema = zod.object({
     mobileNumber: zod
   .string()
   .min(10, "Mobile number must be 10 digits")
@@ -27,7 +27,7 @@ export const userSigninShema = zod.object({
 });
 
 // Admin Validation
-export const adminValidationShema = zod.object({
+export const adminValidationSchema = zod.object({
     email: zod.string().email("Invalid email address"),
     password: zod.string().min(6, "Password is required"),
 });

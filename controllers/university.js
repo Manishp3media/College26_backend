@@ -13,27 +13,27 @@ import UniversitySubCourse from "../models/UniversitySubCourse.js";
 // Helper function to validate MongoDB ObjectIds
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
-// Helper function to fetch ids from redis and validate incoming ids
-const fetchAndCacheIDs = async (redisClient, key, model, ids, ttl) => {
-    // First validate that all IDs are valid ObjectIds
-    const invalidIds = ids.filter(id => !isValidObjectId(id));
-    if (invalidIds.length > 0) {
-        throw new Error(`Invalid ObjectIds found: ${invalidIds.join(', ')}`);
-    }
+// // Helper function to fetch ids from redis and validate incoming ids
+// const fetchAndCacheIDs = async (redisClient, key, model, ids, ttl) => {
+//     // First validate that all IDs are valid ObjectIds
+//     const invalidIds = ids.filter(id => !isValidObjectId(id));
+//     if (invalidIds.length > 0) {
+//         throw new Error(`Invalid ObjectIds found: ${invalidIds.join(', ')}`);
+//     }
 
-    const cachedData = await redisClient.get(key);
-    if (cachedData) {
-        const parsed = JSON.parse(cachedData);
-        // Filter to only include requested IDs
-        return parsed.filter(item => ids.includes(item._id.toString()));
-    } else {
-        const result = await model.find({ _id: { $in: ids } });
-        // Filter to only include requested IDs
-        const filteredResult = result.filter(item => ids.includes(item._id.toString()));
-        await redisClient.setEx(key, ttl, JSON.stringify(filteredResult));
-        return filteredResult;
-    }
-};
+//     const cachedData = await redisClient.get(key);
+//     if (cachedData) {
+//         const parsed = JSON.parse(cachedData);
+//         // Filter to only include requested IDs
+//         return parsed.filter(item => ids.includes(item._id.toString()));
+//     } else {
+//         const result = await model.find({ _id: { $in: ids } });
+//         // Filter to only include requested IDs
+//         const filteredResult = result.filter(item => ids.includes(item._id.toString()));
+//         await redisClient.setEx(key, ttl, JSON.stringify(filteredResult));
+//         return filteredResult;
+//     }
+// };
 
 // Helper function to validate IDs directly from MongoDB
 const validateIDs = async (model, ids) => {
@@ -65,7 +65,7 @@ export const addUniversity = async (req, res) => {
             universityLink,
             about,
             accrediations,
-            universitySubCourses, // This will now be an array of objects with customization data
+            universitySubCourses,
             admissionProcess,
             examinationPattern,
             placementPartners,
