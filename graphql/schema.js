@@ -5,18 +5,22 @@ import amenityTypeDefs from '../graphql/typeDefs/amenity.js';
 import amenityResolvers from '../graphql/resolvers/amenity.js';
 import adminTypeDefs from '../graphql/typeDefs/adminAuth.js';
 import adminResolvers from '../graphql/resolvers/adminAuth.js';
+import placementPartnerTypeDefs from '../graphql/typeDefs/placementPartner.js';
+import placementPartnerResolvers from '../graphql/resolvers/placementPartner.js';
 
 // Merge all type definitions and resolvers
 const typeDefs = mergeTypeDefs([
     authTypeDefs,
     adminTypeDefs,
     amenityTypeDefs,
+    placementPartnerTypeDefs
 ]);
 
 const resolvers = mergeResolvers([
     authResolvers,
     adminResolvers,
-    amenityResolvers
+    amenityResolvers,
+    placementPartnerResolvers
 ]);
 
 export { typeDefs, resolvers };
