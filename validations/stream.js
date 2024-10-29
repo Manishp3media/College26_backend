@@ -1,5 +1,5 @@
 import zod from "zod";
 
-export const addStreamValidationShema = zod.object({
+export const addStreamValidationSchema = zod.object({
     name: zod.string().min(1, "Name is required"),
 });

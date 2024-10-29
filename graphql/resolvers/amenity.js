@@ -5,8 +5,15 @@ import { addAmenityValidationShema } from "../../validations/amenity.js";
 
 const resolvers = {
   Query: {
-    getAmenities: async (_, __, { redisClient }) => {
+    getAmenities: async (_, __, { redisClient, isAdmin }) => {
       try {
+        // Check authentication
+        if (!isAdmin) {
+          throw new GraphQLError('Not authorized', {
+            extensions: { code: 'UNAUTHORIZED' },
+          });
+        }
+
         // Check cache
         const cachedAmenities = await redisClient.get(CACHE_KEYS.AMENITIES.ALL);
         if (cachedAmenities) {

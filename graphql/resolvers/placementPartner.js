@@ -5,11 +5,18 @@ import { storageService } from "../../utils/storage.js";
 
 const resolvers = {
     Query: {
-        getPlacementPartners: async (_, __, { redisClient }) => {
+        getPlacementPartners: async (_, __, { redisClient, isAdmin }) => {
             try {
+                // Check authentication
+                if (!isAdmin) {
+                    throw new GraphQLError('Not authorized', {
+                        extensions: { code: 'UNAUTHORIZED' },
+                    });
+                }
+
                 const cached = await redisClient.get(CACHE_KEYS.PLACEMENT_PARTNERS.ALL);
 
-                if (cached) {  
+                if (cached) {
                     return JSON.parse(cached);
                 }
 
@@ -24,17 +31,22 @@ const resolvers = {
             } catch (error) {
                 throw new GraphQLError(error.message, {
                     extensions: { code: 'INTERNAL_SERVER_ERROR' },
-                  });
+                });
             }
         }
     },
 
     Mutation: {
-        addPlacementPartner: async (_, { name, logo }, { redisClient }) => {
+        addPlacementPartner: async (_, { name, logo }, { redisClient, isAdmin }) => {
             try {
-            
+                // Check authentication
+                if (!isAdmin) {
+                    throw new GraphQLError('Not authorized', {
+                        extensions: { code: 'UNAUTHORIZED' },
+                    });
+                }
                 const upload = await logo;
-                
+
                 if (!upload) {
                     throw new GraphQLError('File upload failed');
                 }
@@ -43,7 +55,6 @@ const resolvers = {
                 const existing = await PlacementPartner.findOne({ name: lowerCaseName });
 
                 if (existing) {
-                    console.error(' Partner already exists:', lowerCaseName);
                     throw new GraphQLError('Placement partner already exists');
                 }
 
@@ -60,7 +71,7 @@ const resolvers = {
             } catch (error) {
                 throw new GraphQLError(error.message, {
                     extensions: { code: 'INTERNAL_SERVER_ERROR' },
-                  });
+                });
             }
         }
     }
