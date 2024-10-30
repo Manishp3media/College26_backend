@@ -35,6 +35,11 @@ const courseSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "AcademicLevel",
         required: true
+    },
+    stream: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Stream",
+        required: true
     }
 });
 

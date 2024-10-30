@@ -98,6 +98,75 @@ const resolvers = {
             }
         }
     }
+    // Mutation: {
+    //     addAccrediation: async (_, { name, logo }, { redisClient, isAdmin }) => {
+    //       try {
+    //         // Check authentication
+    //         if (!isAdmin) {
+    //           throw new GraphQLError('Not authorized', {
+    //             extensions: { code: 'UNAUTHORIZED' },
+    //           });
+    //         }
+    
+    //         // Handle file upload
+    //         const upload = await logo;
+            
+    //         if (!upload) {
+    //             throw new GraphQLError('File upload failed');
+    //         }
+    
+    //         // Convert name to lowercase
+    //         const lowerCaseName = name.toLowerCase();
+    
+    //         // Validate input
+    //         const validation = accrediationValidationSchema.safeParse({
+    //           name: lowerCaseName,
+    //           logo: upload
+    //         });
+    
+    //         if (!validation.success) {
+    //           throw new GraphQLError('Invalid input', {
+    //             extensions: {
+    //               code: 'BAD_USER_INPUT',
+    //               errors: validation.error.flatten().fieldErrors,
+    //             },
+    //           });
+    //         }
+    
+    //         // Check if accrediation exists
+    //         const existingAccrediation = await Accrediation.findOne({
+    //           name: lowerCaseName
+    //         });
+    
+    //         if (existingAccrediation) {
+    //           throw new GraphQLError('Accrediation already exists');
+    //         }
+    
+    //         // Save image
+    //         const logoUrl = await storageService.saveImage(upload, 'accrediations');
+    
+    //         // Create and save new accrediation
+    //         const newAccrediation = new Accrediation({
+    //           name: lowerCaseName,
+    //           logo: logoUrl,
+    //         });
+    
+    //         await newAccrediation.save();
+    
+    //         // Invalidate cache
+    //         await redisClient.del(CACHE_KEYS.ACCREDITATION.ALL);
+    
+    //         return newAccrediation;
+    //       } catch (error) {
+    //         throw new GraphQLError(error.message || 'File upload failed', {
+    //           extensions: { 
+    //             code: error.extensions?.code || 'INTERNAL_SERVER_ERROR',
+    //             original: error
+    //           },
+    //         });
+    //       }
+    //     }
+    //   }
 };
 
 export default resolvers;

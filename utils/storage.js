@@ -22,14 +22,11 @@ class StorageService {
     }
 
     async saveImage(file, folder) {
-        try {
-            // console.log('📥 Starting file save process...');
-            // console.log('📦 File object:', {
-            //     filename: file.filename,
-            //     mimetype: file.mimetype,
-            //     encoding: file.encoding
-            // });
+        if (!file || typeof file.createReadStream !== 'function') {
+            throw new Error('Invalid file upload. File must be a valid Upload object.');
+        }
 
+        try {
             const stream = file.createReadStream();
             const uniqueFilename = `${Date.now()}-${file.filename}`;
 
@@ -45,50 +42,48 @@ class StorageService {
     }
 
     async saveToS3(stream, filename, folder) {
-        const chunks = [];
+        try {
+            const chunks = [];
+            for await (const chunk of stream) {
+                chunks.push(chunk);
+            }
 
-        for await (const chunk of stream) {
-            chunks.push(chunk);
+            const buffer = Buffer.concat(chunks);
+            const key = `${folder}/${filename}`;
+
+            const command = new PutObjectCommand({
+                Bucket: process.env.AWS_S3_BUCKET,
+                Key: key,
+                Body: buffer,
+                ContentType: 'application/octet-stream', // Changed to handle all file types
+            });
+
+            await this.s3Client.send(command);
+            return `${process.env.AWS_S3_URL}/${key}`;
+        } catch (error) {
+            console.error('❌ Error in S3 upload:', error);
+            throw new Error(`Failed to upload to S3: ${error.message}`);
         }
-
-        const buffer = Buffer.concat(chunks);
-        const key = `${folder}/${filename}`;
-
-        const command = new PutObjectCommand({
-            Bucket: process.env.AWS_S3_BUCKET,
-            Key: key,
-            Body: buffer,
-            ContentType: 'image/jpeg',
-        });
-
-        await this.s3Client.send(command);
-        return `${process.env.AWS_S3_URL}/${key}`;
     }
 
     async saveToLocal(stream, filename, folder) {
         const uploadsDir = path.join(__dirname, '../public/uploads', folder);
-        
-        console.log('📁 Saving to directory:', uploadsDir);
-        
-        if (!fs.existsSync(uploadsDir)) {
-            fs.mkdirSync(uploadsDir, { recursive: true });
+
+        try {
+            if (!fs.existsSync(uploadsDir)) {
+                fs.mkdirSync(uploadsDir, { recursive: true });
+            }
+
+            const filePath = path.join(uploadsDir, filename);
+            const writeStream = fs.createWriteStream(filePath);
+
+            await finished(stream.pipe(writeStream));
+            console.log('✅ File saved successfully:', filePath);
+            return `/uploads/${folder}/${filename}`;
+        } catch (error) {
+            console.error('❌ Error saving file locally:', error);
+            throw new Error(`Failed to save file locally: ${error.message}`);
         }
-
-        const filePath = path.join(uploadsDir, filename);
-        const writeStream = fs.createWriteStream(filePath);
-
-        return new Promise((resolve, reject) => {
-            stream
-                .pipe(writeStream)
-                .on('finish', () => {
-                    console.log('✅ File saved successfully:', filePath);
-                    resolve(`/uploads/${folder}/${filename}`);
-                })
-                .on('error', (error) => {
-                    console.error('❌ Error saving file:', error);
-                    reject(error);
-                });
-        });
     }
 }
 

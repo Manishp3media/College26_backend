@@ -5,8 +5,8 @@ import { createClient } from "redis";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
-import { GraphQLUpload, graphqlUploadExpress } from 'graphql-upload-minimal'; // Changed package
-import bodyParser from 'body-parser';  // Added missing import
+import { GraphQLUpload, graphqlUploadExpress } from 'graphql-upload-minimal'; 
+import bodyParser from 'body-parser';  
 import { typeDefs, resolvers } from './graphql/schema.js';
 import { createContext } from './graphql/context.js';
 
@@ -64,8 +64,8 @@ async function initializeApolloServer() {
         app.use(bodyParser.urlencoded({ extended: true }));
         // 4. Upload middleware
         app.use(graphqlUploadExpress({ 
-            maxFileSize: 10000000, // 10 MB
-            maxFiles: 1
+            maxFileSize: 50000000, // 50 MB
+            maxFiles: 10
         }));
 
 

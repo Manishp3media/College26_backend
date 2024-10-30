@@ -1,6 +1,7 @@
 import streamTypeDefs from './stream.js';
 
 const typeDefs = `#graphql
+    scalar Upload
     type AcademicLevel {
         _id: ID!
         name: String!
