@@ -13,7 +13,7 @@ const subCourseSchema = new mongoose.Schema({
     },
     banners: [
       {
-        id: { type: String}, 
+        _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() },
         url: { 
           type: String, 
           default: "https://foundr.com/wp-content/uploads/2021/09/Best-online-course-platforms.png" 

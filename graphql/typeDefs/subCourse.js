@@ -8,12 +8,12 @@ const typeDefs = `#graphql
         subCourseDescription: String
         fees: Int!
         course: String
-        syllabus: Upload
+        syllabus: String
         banners: [Banner]
     }
 
     type Banner {
-        id: ID
+        _id: ID
         url: String
     }
 
@@ -27,12 +27,27 @@ const typeDefs = `#graphql
         banners: [Upload]
     } 
 
+    input UpdateSubCourseInput {
+        id: ID
+        subCourseName: String!
+        subCourseShortName: String!
+        subCourseDescription: String
+        fees: Int!
+        course: String
+        syllabus: Upload
+        banners: [Upload]
+    }
+
     type Query {
         getSubCourses: [SubCourse]
     }
 
     type Mutation {
         addSubCourse(input: AddSubCourseInput!): SubCourse!
+
+        updateSubCourse(input: UpdateSubCourseInput!): SubCourse!
+
+        deleteSubCourse(id: ID!): SubCourse!
     }
 `;
 
