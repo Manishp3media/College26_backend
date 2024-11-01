@@ -20,8 +20,7 @@ const universitySchema = new mongoose.Schema({
     },
     banners: [
         {
-            id: { type: String, required: true },
-            url: { type: String, required: true }
+            url: { type: String }
         }
     ],
     universityLink: {

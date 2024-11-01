@@ -14,11 +14,6 @@ const addmissionSchema = zod.object({
     }))
 })
 
-const examinationPatternSchema = zod.object({
-    description: zod.string().optional(),
-    document: zod.string().optional()
-});
-
 // Schema for custom subcourse data
 const universitySubCourseSchema = z.union([
     // Option 1: Just a string ID
@@ -46,16 +41,15 @@ export const addUniversityValidationSchema = zod.object({
     tagLine: zod.string().min(1, "Tag line is required"),
     universityLink: zod.string().optional(),
     brochure: zod.string().optional(),
-    banners: zod.array(zod.object({
-        id: zod.string().min(1, "Banner ID is required"), // Changed to required
-        url: zod.string().min(1, "Banner URL is required"), // Changed to required
-    })).optional(),
+    // banners: zod.array(zod.object({
+    //     id: zod.string().min(1, "Banner ID is required"), // Changed to required
+    //     url: zod.string().min(1, "Banner URL is required"), // Changed to required
+    // })).optional(),
     about: aboutSchema.optional(), // Ensure aboutSchema is defined
     accrediations: zod.array(zod.string()).min(1, "At least one accreditation is required"),
     universitySubCourses: z.array(universitySubCourseSchema)
         .min(1, "At least one sub-course is required"),
     admissionProcess: addmissionSchema.optional(), // Ensure addmissionSchema is defined
-    examinationPattern: examinationPatternSchema.optional(), // Ensure examinationPatternSchema is defined
     placementPartners: zod.array(zod.string()).min(1, "At least one placement partner is required"),
     socialMediaLinks: zod.array(zod.string()).min(1, "At least one social media link is required"),
     amenities: zod.array(zod.string()).min(1, "At least one amenity is required"),

@@ -19,6 +19,8 @@ import courseTypeDefs from '../graphql/typeDefs/course.js';
 import courseResolvers from '../graphql/resolvers/course.js';
 import subCourseTypeDefs from '../graphql/typeDefs/subCourse.js';
 import subCourseResolvers from '../graphql/resolvers/subCourse.js';
+import universityResolvers from '../graphql/resolvers/university.js';
+import universityTypeDefs from '../graphql/typeDefs/university.js';
 
 // Merge all type definitions and resolvers
 const typeDefs = mergeTypeDefs([
@@ -31,7 +33,8 @@ const typeDefs = mergeTypeDefs([
     streamTypeDefs,
     academicLevelTypeDefs,
     courseTypeDefs,
-    subCourseTypeDefs
+    subCourseTypeDefs,
+    universityTypeDefs
 ]);
 
 const resolvers = mergeResolvers([
@@ -44,7 +47,8 @@ const resolvers = mergeResolvers([
     streamResolvers,
     academicLevelResolvers,
     courseResolvers,
-    subCourseResolvers
+    subCourseResolvers,
+    universityResolvers
 ]);
 
 export { typeDefs, resolvers };
