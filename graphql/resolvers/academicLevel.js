@@ -20,7 +20,9 @@ const resolvers = {
                     return JSON.parse(cachedAcademicLevels);
                 }
 
-                const academicLevels = await AcademicLevel.find().populate('streams');
+                // const academicLevels = await AcademicLevel.find().populate('streams');
+
+                const academicLevels = await AcademicLevel.find();
 
                 // Set cache
                 await redisClient.setEx(
@@ -59,7 +61,7 @@ const resolvers = {
                     });
                 }
 
-                const { name, streams } = input;
+                const { name } = input;
 
                 // Convert name to lowercase
                 const lowerCaseName = name.toLowerCase();
@@ -73,7 +75,7 @@ const resolvers = {
                 }
 
                 // Create new Academic Level
-                const newAcademicLevel = new AcademicLevel({ name: lowerCaseName, streams });
+                const newAcademicLevel = new AcademicLevel({ name: lowerCaseName });
                 await newAcademicLevel.save();
 
                 // Invalidate the streams cache

@@ -1,18 +1,13 @@
-import streamTypeDefs from './stream.js';
+// import streamTypeDefs from './stream.js';
 
 const typeDefs = `#graphql
-    scalar Upload
     type AcademicLevel {
         _id: ID!
         name: String!
-       streams: [Stream]
     }
-
-    ${streamTypeDefs}
 
     input AddAcademicLevelInput {
         name: String!
-        streams: [String]
     }
 
     type Query {
