@@ -21,7 +21,6 @@ const resolvers = {
                 }
 
                 // const academicLevels = await AcademicLevel.find().populate('streams');
-
                 const academicLevels = await AcademicLevel.find();
 
                 // Set cache

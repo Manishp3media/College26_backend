@@ -101,6 +101,7 @@ const adminResolvers = {
           user: admin
         };
       } catch (error) {
+        console.log(error);
         throw new GraphQLError(error.message, {
           extensions: { code: 'INTERNAL_SERVER_ERROR' }
         });

@@ -26,6 +26,42 @@ const validateIDs = async (model, ids) => {
     return result.filter(item => ids.includes(item._id.toString()));
 };
 
+const validateAndUploadFiles = async (files, folder) => {
+    if (!files || !Array.isArray(files)) return [];
+
+    const uploadPromises = files
+        .filter(file => file !== null)
+        .map(async (file) => {
+            try {
+                const resolvedFile = await Promise.resolve(file);
+                if (!resolvedFile) return null;
+
+                const url = await storageService.saveImage(resolvedFile, folder);
+                return { url };
+            } catch (error) {
+                console.error(`Error uploading file to ${folder}:`, error);
+                return null;
+            }
+        });
+
+    const results = await Promise.all(uploadPromises);
+    return results.filter(result => result !== null);
+}
+
+const uploadSingleFile = async (file, folder) => {
+    if (!file) return null;
+
+    try {
+        const resolvedFile = await Promise.resolve(file);
+        if (!resolvedFile) return null;
+
+        return await storageService.saveImage(resolvedFile, folder);
+    } catch (error) {
+        console.error(`Error uploading file to ${folder}:`, error);
+        return null;
+    }
+};
+
 const DEFAULT_BANNER = {
     url: "https://foundr.com/wp-content/uploads/2021/09/Best-online-course-platforms.png"
 };
@@ -92,77 +128,86 @@ export const resolvers = {
                     return res.status(400).json({ message: "Invalid amenity IDs" });
                 }
 
-                // Handle banner uploads
-                let bannerUrls = [];
+                // // Handle banner uploads
+                // let bannerUrls = [];
 
-                if (banners && Array.isArray(banners) && banners.length > 0) {
-                    console.log("Processing banners:", banners);
+                // if (banners && Array.isArray(banners) && banners.length > 0) {
+                //     console.log("Processing banners:", banners);
 
-                    // Filter out null values first
-                    const nonNullBanners = banners.filter(banner => banner !== null);
+                //     // Filter out null values first
+                //     const nonNullBanners = banners.filter(banner => banner !== null);
 
-                    if (nonNullBanners.length > 0) {
-                        for (const banner of nonNullBanners) {
-                            try {
-                                const upload = await banner; // Resolve the upload promise
-                                if (!upload) continue;
+                //     if (nonNullBanners.length > 0) {
+                //         for (const banner of nonNullBanners) {
+                //             try {
+                //                 const upload = await banner; // Resolve the upload promise
+                //                 if (!upload) continue;
 
-                                const url = await storageService.saveImage(upload, 'banners');
-                                console.log("Uploaded banner:", url);
-                                bannerUrls.push({ url });
-                            } catch (error) {
-                                console.error('Error uploading banner:', error);
-                            }
-                        }
-                    }
-                }
+                //                 const url = await storageService.saveImage(upload, 'banners');
+                //                 console.log("Uploaded banner:", url);
+                //                 bannerUrls.push({ url });
+                //             } catch (error) {
+                //                 console.error('Error uploading banner:', error);
+                //             }
+                //         }
+                //     }
+                // }
 
+                // // If no banners were provided or all uploads failed, use the default banner
+                // if (bannerUrls.length === 0) {
+                //     bannerUrls = [DEFAULT_BANNER];
+                // }
 
+                // // Handle logo upload
+                // let universityLogoUrl = null;
+                // if (universityLogo) {
+                //     try {
+                //         const upload = await universityLogo; // Resolve the upload promise
+                //         if (upload) {
+                //             universityLogoUrl = await storageService.saveImage(upload, 'university-logo');
+                //             console.log("Uploaded logo:", universityLogo);
+                //         }
+                //     } catch (error) {
+                //         console.error('Error uploading syllabus:', error);
+                //         throw new GraphQLError('Failed to upload logo', {
+                //             extensions: { code: 'UPLOAD_FAILED' },
+                //         });
+                //     }
+                // }
 
-                // If no banners were provided or all uploads failed, use the default banner
-                if (bannerUrls.length === 0) {
-                    bannerUrls = [DEFAULT_BANNER];
-                }
+                // // Handle brochure upload
+                // let brochureUrl = null;
+                // if (brochure) {
+                //     try {
+                //         const upload = await brochure; // Resolve the upload promise
+                //         if (upload) {
+                //             brochureUrl = await storageService.saveImage(upload, 'brochure');
+                //             console.log("Uploaded brochure:", brochureUrl);
+                //         }
+                //     } catch (error) {
+                //         console.error('Error uploading brochure:', error);
+                //         throw new GraphQLError('Failed to upload brochure', {
+                //             extensions: { code: 'UPLOAD_FAILED' },
+                //         });
+                //     }
+                // }
 
-                // Handle logo upload
-                let universityLogoUrl = null;
-                if (universityLogo) {
-                    try {
-                        const upload = await universityLogo; // Resolve the upload promise
-                        if (upload) {
-                            universityLogoUrl = await storageService.saveImage(upload, 'university-logo');
-                            console.log("Uploaded logo:", universityLogo);
-                        }
-                    } catch (error) {
-                        console.error('Error uploading syllabus:', error);
-                        throw new GraphQLError('Failed to upload logo', {
-                            extensions: { code: 'UPLOAD_FAILED' },
-                        });
-                    }
-                }
+                // Handle all file uploads concurrently
+                const [bannerUrls, universityLogoUrl, brochureUrl] = await Promise.all([
+                    validateAndUploadFiles(banners, 'banners'),
+                    uploadSingleFile(universityLogo, 'university-logo'),
+                    uploadSingleFile(brochure, 'brochure')
+                ]);
 
-                // Handle brochure upload
-                let brochureUrl = null;
-                if (brochure) {
-                    try {
-                        const upload = await brochure; // Resolve the upload promise
-                        if (upload) {
-                            brochureUrl = await storageService.saveImage(upload, 'brochure');
-                            console.log("Uploaded brochure:", brochureUrl);
-                        }
-                    } catch (error) {
-                        console.error('Error uploading brochure:', error);
-                        throw new GraphQLError('Failed to upload brochure', {
-                            extensions: { code: 'UPLOAD_FAILED' },
-                        });
-                    }
-                }
+                // Use default banner if no banners were uploaded successfully
+                const finalBannerUrls = bannerUrls.length > 0 ? bannerUrls : [DEFAULT_BANNER];
+
                 const newUniversity = new University({
                     universityName: lowerCaseUniversityName,
                     universityShortName: lowerCaseUniversityShortName,
                     universityLink,
                     universityLogo: universityLogoUrl,
-                    banners: bannerUrls,
+                    banners: finalBannerUrls,
                     brochure: brochureUrl,
                     tagLine,
                     accrediations,
@@ -181,7 +226,7 @@ export const resolvers = {
                     const subCourseIds = universitySubCourses.map(course =>
                         typeof course === 'string' ? course : course.subCourseId
                     );
-                
+
                     const subCoursesMap = await mongoose.model('SubCourse')
                         .find({ _id: { $in: subCourseIds } })
                         .session(session)
@@ -191,15 +236,15 @@ export const resolvers = {
                                 return acc;
                             }, {});
                         });
-                
+
                     const universitySubCoursesToSave = await Promise.all(universitySubCourses.map(async course => {
                         const subCourseId = typeof course === 'string' ? course : course.subCourseId;
                         const subCourse = subCoursesMap[subCourseId.toString()];
-                
+
                         if (!subCourse) {
                             throw new Error(`SubCourse with ID ${subCourseId} not found`);
                         }
-                
+
                         // Create base object with default values from subCourse
                         const baseObject = {
                             university: newUniversity._id,
@@ -211,23 +256,23 @@ export const resolvers = {
                             customShortName: subCourse.subCourseShortName,
                             customBanners: subCourse.banners
                         };
-                
+
                         // If course is an object (not just a string ID), handle custom uploads and values
                         if (typeof course !== 'string') {
                             // Handle custom banner uploads
                             let customBannerUrls = [];
                             if (course.customBanners && Array.isArray(course.customBanners) && course.customBanners.length > 0) {
                                 console.log("Processing custom banners:", course.customBanners);
-                
+
                                 // Filter out null values first
                                 const nonNullBanners = course.customBanners.filter(banner => banner !== null);
-                
+
                                 if (nonNullBanners.length > 0) {
                                     for (const banner of nonNullBanners) {
                                         try {
                                             const upload = await banner; // Resolve the upload promise
                                             if (!upload) continue;
-                
+
                                             const url = await storageService.saveImage(upload, 'custom-banners');
                                             console.log("Uploaded custom banner:", url);
                                             customBannerUrls.push({ url });
@@ -237,12 +282,12 @@ export const resolvers = {
                                     }
                                 }
                             }
-                
+
                             // If custom banners were successfully uploaded, update baseObject
                             if (customBannerUrls.length > 0) {
                                 baseObject.customBanners = customBannerUrls;
                             }
-                
+
                             // Handle custom syllabus upload
                             if (course.customSyllabus) {
                                 try {
@@ -259,22 +304,22 @@ export const resolvers = {
                                     });
                                 }
                             }
-                
+
                             // Handle other custom fields
                             if (course.customFees != null) baseObject.customFees = course.customFees;
                             if (course.customDescription != null) baseObject.customDescription = course.customDescription;
                             if (course.customName != null) baseObject.customName = course.customName;
                             if (course.customShortName != null) baseObject.customShortName = course.customShortName;
                         }
-                
+
                         console.log("Final baseObject:", baseObject);
                         return baseObject;
                     }));
-                
+
                     // Save all university sub courses
                     const savedUniversitySubCourses = await UniversitySubCourse
                         .insertMany(universitySubCoursesToSave, { session });
-                
+
                     // Fetch the saved documents with populated subCourse field
                     const populatedUniversitySubCourses = await UniversitySubCourse
                         .find({ _id: { $in: savedUniversitySubCourses.map(doc => doc._id) } })
@@ -283,9 +328,9 @@ export const resolvers = {
                             select: 'subCourseName subCourseShortName banners subCourseDescription syllabus fees'
                         })
                         .session(session);
-                
+
                     console.log("Populated universitySubCourses:", populatedUniversitySubCourses);
-                
+
                     return populatedUniversitySubCourses;
                 };
 
@@ -322,7 +367,12 @@ export const resolvers = {
                 return newUniversity;
 
             } catch (error) {
-                console.error('Error adding university:', error);
+                // Check if this error is already a GraphQLError with a specific message
+                if (error instanceof GraphQLError) {
+                    throw error;  // Pass through the specific error message
+                }
+
+                // For unexpected errors, throw a generic message
                 throw new GraphQLError('Failed to add university', {
                     extensions: { code: 'ADD_FAILED' },
                 });
