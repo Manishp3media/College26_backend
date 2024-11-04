@@ -10,21 +10,21 @@ import { storageService } from "../../utils/storage.js";
 import { GraphQLError } from "graphql";
 import { CACHE_KEYS, CACHE_TTL } from "../../constants/cache.js";
 
-// Helper function to validate MongoDB ObjectIds
-const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+// // Helper function to validate MongoDB ObjectIds
+// const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
-// Helper function to validate IDs directly from MongoDB
-const validateIDs = async (model, ids) => {
-    // First validate that all IDs are valid ObjectIds
-    const invalidIds = ids.filter(id => !isValidObjectId(id));
-    if (invalidIds.length > 0) {
-        throw new Error(`Invalid ObjectIds found: ${invalidIds.join(', ')}`);
-    }
+// // Helper function to validate IDs directly from MongoDB
+// const validateIDs = async (model, ids) => {
+//     // First validate that all IDs are valid ObjectIds
+//     const invalidIds = ids.filter(id => !isValidObjectId(id));
+//     if (invalidIds.length > 0) {
+//         throw new Error(`Invalid ObjectIds found: ${invalidIds.join(', ')}`);
+//     }
 
-    const result = await model.find({ _id: { $in: ids } });
-    // Filter to only include requested IDs
-    return result.filter(item => ids.includes(item._id.toString()));
-};
+//     const result = await model.find({ _id: { $in: ids } });
+//     // Filter to only include requested IDs
+//     return result.filter(item => ids.includes(item._id.toString()));
+// };
 
 const validateAndUploadFiles = async (files, folder) => {
     if (!files || !Array.isArray(files)) return [];
@@ -102,105 +102,58 @@ export const resolvers = {
                     typeof course === 'string' ? course : course.subCourseId
                 );
 
-                // Validate all IDs directly from MongoDB
-                const [validAccrediations, validSubCourses, validSocialMediaLinks, validPlacementPartners, validAmenities] = await Promise.all([
-                    validateIDs(Accrediation, accrediations),
-                    validateIDs(SubCourse, subCourseIds),
-                    validateIDs(SocialMedia, Array.isArray(socialMediaLinks) ? socialMediaLinks : [socialMediaLinks]),
-                    validateIDs(PlacementPartner, placementPartners),
-                    validateIDs(Amenity, amenities)
-                ]);
+                // // Validate all IDs directly from MongoDB
+                // const [validAccrediations, validSubCourses, validSocialMediaLinks, validPlacementPartners, validAmenities] = await Promise.all([
+                //     validateIDs(Accrediation, accrediations),
+                //     validateIDs(SubCourse, subCourseIds),
+                //     validateIDs(SocialMedia, Array.isArray(socialMediaLinks) ? socialMediaLinks : [socialMediaLinks]),
+                //     validateIDs(PlacementPartner, placementPartners),
+                //     validateIDs(Amenity, amenities)
+                // ]);
 
-                // Validation checks
-                if (validAccrediations.length !== accrediations.length) {
-                    return res.status(400).json({ message: "Invalid accreditation IDs" });
-                }
-                if (validSubCourses.length !== subCourseIds.length) {
-                    return res.status(400).json({ message: "Invalid sub-course IDs" });
-                }
-                if (validSocialMediaLinks.length !== socialMediaLinks.length) {
-                    return res.status(400).json({ message: "Invalid social media link IDs" });
-                }
-                if (validPlacementPartners.length !== placementPartners.length) {
-                    return res.status(400).json({ message: "Invalid placement partner IDs" });
-                }
-                if (validAmenities.length !== amenities.length) {
-                    return res.status(400).json({ message: "Invalid amenity IDs" });
-                }
-
-                // // Handle banner uploads
-                // let bannerUrls = [];
-
-                // if (banners && Array.isArray(banners) && banners.length > 0) {
-                //     console.log("Processing banners:", banners);
-
-                //     // Filter out null values first
-                //     const nonNullBanners = banners.filter(banner => banner !== null);
-
-                //     if (nonNullBanners.length > 0) {
-                //         for (const banner of nonNullBanners) {
-                //             try {
-                //                 const upload = await banner; // Resolve the upload promise
-                //                 if (!upload) continue;
-
-                //                 const url = await storageService.saveImage(upload, 'banners');
-                //                 console.log("Uploaded banner:", url);
-                //                 bannerUrls.push({ url });
-                //             } catch (error) {
-                //                 console.error('Error uploading banner:', error);
-                //             }
-                //         }
-                //     }
+                // // Validation checks
+                // if (validAccrediations.length !== accrediations.length) {
+                //     throw new GraphQLError('Invalid accreditation IDs', {
+                //         extensions: { code: 'BAD_USER_INPUT' },
+                //     })
                 // }
-
-                // // If no banners were provided or all uploads failed, use the default banner
-                // if (bannerUrls.length === 0) {
-                //     bannerUrls = [DEFAULT_BANNER];
+                // if (validSubCourses.length !== subCourseIds.length) {
+                //     throw new GraphQLError('Invalid subcourse IDs', {
+                //         extensions: { code: 'BAD_USER_INPUT' },
+                //     })
+                // // }
+                // if (validSocialMediaLinks.length !== socialMediaLinks.length) {
+                //     throw new GraphQLError('Invalid social media link IDs', {
+                //         extensions: { code: 'BAD_USER_INPUT' },
+                //     })
                 // }
-
-                // // Handle logo upload
-                // let universityLogoUrl = null;
-                // if (universityLogo) {
-                //     try {
-                //         const upload = await universityLogo; // Resolve the upload promise
-                //         if (upload) {
-                //             universityLogoUrl = await storageService.saveImage(upload, 'university-logo');
-                //             console.log("Uploaded logo:", universityLogo);
-                //         }
-                //     } catch (error) {
-                //         console.error('Error uploading syllabus:', error);
-                //         throw new GraphQLError('Failed to upload logo', {
-                //             extensions: { code: 'UPLOAD_FAILED' },
-                //         });
-                //     }
+                // if (validPlacementPartners.length !== placementPartners.length) {
+                //     throw new GraphQLError('Invalid placement partner IDs', {
+                //         extensions: { code: 'BAD_USER_INPUT' },
+                //     })
                 // }
-
-                // // Handle brochure upload
-                // let brochureUrl = null;
-                // if (brochure) {
-                //     try {
-                //         const upload = await brochure; // Resolve the upload promise
-                //         if (upload) {
-                //             brochureUrl = await storageService.saveImage(upload, 'brochure');
-                //             console.log("Uploaded brochure:", brochureUrl);
-                //         }
-                //     } catch (error) {
-                //         console.error('Error uploading brochure:', error);
-                //         throw new GraphQLError('Failed to upload brochure', {
-                //             extensions: { code: 'UPLOAD_FAILED' },
-                //         });
-                //     }
+                // if (validAmenities.length !== amenities.length) {
+                //     throw new GraphQLError('Invalid amenity IDs', {
+                //         extensions: { code: 'BAD_USER_INPUT' },
+                //     })
                 // }
 
                 // Handle all file uploads concurrently
-                const [bannerUrls, universityLogoUrl, brochureUrl] = await Promise.all([
+                const [bannerUrls, universityLogoUrl, brochureUrl, examinationPatternDocumentUrl] = await Promise.all([
                     validateAndUploadFiles(banners, 'banners'),
                     uploadSingleFile(universityLogo, 'university-logo'),
-                    uploadSingleFile(brochure, 'brochure')
+                    uploadSingleFile(brochure, 'brochure'),
+                    examinationPattern?.document ? uploadSingleFile(examinationPattern.document, 'examination-pattern') : null,
                 ]);
 
                 // Use default banner if no banners were uploaded successfully
                 const finalBannerUrls = bannerUrls.length > 0 ? bannerUrls : [DEFAULT_BANNER];
+
+                // Construct examinationPattern object with document URL
+                const examinationPatternData = {
+                    description: examinationPattern?.description,
+                    document: examinationPatternDocumentUrl, // Store document URL
+                };
 
                 const newUniversity = new University({
                     universityName: lowerCaseUniversityName,
@@ -212,7 +165,7 @@ export const resolvers = {
                     tagLine,
                     accrediations,
                     admissionProcess,
-                    examinationPattern,
+                    examinationPattern: examinationPatternData,
                     placementPartners,
                     socialMediaLinks,
                     amenities,
@@ -371,7 +324,7 @@ export const resolvers = {
                 if (error instanceof GraphQLError) {
                     throw error;  // Pass through the specific error message
                 }
-
+                console.log('Error adding university:', error);
                 // For unexpected errors, throw a generic message
                 throw new GraphQLError('Failed to add university', {
                     extensions: { code: 'ADD_FAILED' },

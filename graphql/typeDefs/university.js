@@ -11,11 +11,17 @@ type University {
     brochure: String
     tagLine: String
     accrediations: [String]
+    examinationPattern: ExaminationPattern
     admissionProcess: AdmissionProcess
-    
     placementPartners: [String]
     socialMediaLinks: [String]
     amenities: [String]
+    about: About
+}
+
+type About {
+    heading: String
+    description: String
 }
 
 type Banner {
@@ -53,11 +59,13 @@ input AddUniversityInput {
     brochure: Upload
     accrediations: [String]
     admissionProcess: AdmissionProcessInput
+    examinationPattern: ExaminationPatternInput
     universitySubCourses: [AddUniversitySubCourseInput]
     placementPartners: [String]
     socialMediaLinks: [String]
     amenities: [String]
     banners: [Upload]
+    about: AboutInput
 }
 
 input UpdateUniversityInput {
@@ -88,6 +96,11 @@ input AdmissionProcessInput {
 input AdmissionStepInput {
     stepNumber: Int!
     stepDescription: String!
+}
+
+input AboutInput {
+    heading: String
+    description: String
 }
 
 input ExaminationPatternInput {

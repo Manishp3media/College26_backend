@@ -5,7 +5,12 @@ const academicLevelSchema = new mongoose.Schema({
         type: String,
         required: true,
         unique: true
-    }
+    },
+    // stream: {
+    //     type: mongoose.Schema.Types.ObjectId,
+    //     ref: "Stream",
+    //     required: true
+    // }
 });
 
 export default mongoose.model("AcademicLevel", academicLevelSchema);

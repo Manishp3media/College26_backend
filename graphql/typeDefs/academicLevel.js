@@ -1,5 +1,3 @@
-// import streamTypeDefs from './stream.js';
-
 const typeDefs = `#graphql
     type AcademicLevel {
         _id: ID!
