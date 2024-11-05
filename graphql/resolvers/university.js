@@ -68,47 +68,40 @@ const DEFAULT_BANNER = {
 
 export const resolvers = {
     Query: {
-        getAllUniversities: async (_, __, { redisClient }) => {
+        getAllUniversities: async (_, __, { isAdmin, redisClient }) => {
             try {
-                  // Check authentication
-                  if (!isAdmin) {
+                // Check authentication
+                if (!isAdmin) {
                     throw new GraphQLError('Not authorized', {
                         extensions: { code: 'UNAUTHORIZED' },
                     });
                 }
 
                 const cachedUniversities = await redisClient.get(CACHE_KEYS.UNIVERSITIES.ALL);
-                
+
                 if (cachedUniversities) {
                     return JSON.parse(cachedUniversities);
                 }
-    
+
                 const universities = await University.find({})
-                    .populate({
-                        path: 'universitySubCourses',
-                        populate: {
-                            path: 'subCourse',
-                            select: 'subCourseName subCourseShortName banners subCourseDescription syllabus fees',
-                        }
-                    })
-                    .populate('placementPartners', 'name logo') 
-                    .populate('accrediations', 'name logo')      
-                    .populate('socialMediaLinks', 'name url')      
-                    .populate('amenities', 'name iconName')   
-                    .lean();
-    
+                // .populate('placementPartners', 'name logo') 
+                // .populate('accrediations', 'name logo')      
+                // .populate('socialMediaLinks', 'name url')      
+                // .populate('amenities', 'name iconName')   
+                // .lean();
+
                 if (!universities || universities.length === 0) {
                     throw new GraphQLError('No universities found', {
                         extensions: { code: 'NOT_FOUND' },
                     });
                 }
-    
+
                 await redisClient.set(CACHE_KEYS.UNIVERSITIES.ALL, JSON.stringify(universities), {
                     EX: CACHE_TTL.LONG,
                 });
-    
+
                 return universities;
-    
+
             } catch (error) {
                 if (error instanceof GraphQLError) {
                     throw error;  // Pass through the specific error message
@@ -119,7 +112,7 @@ export const resolvers = {
                 });
             }
         }
-    },    
+    },
     Mutation: {
         addUniversity: async (_, { input }, { redisClient, isAdmin }) => {
             const session = await mongoose.startSession();
@@ -150,11 +143,13 @@ export const resolvers = {
                 }
 
                 // Validate that all subcourse IDs exist
-                const subCourseIds = universitySubCourses.map(course =>
-                    typeof course === 'string' ? course : course.subCourseId
-                );
+                if (universitySubCourses) {
+                    const subCourseIds = universitySubCourses.map(course =>
+                        typeof course === 'string' ? course : course.subCourseId
+                    );
+                }
 
-               
+
 
                 // Handle all file uploads concurrently
                 const [bannerUrls, universityLogoUrl, brochureUrl, examinationPatternDocumentUrl] = await Promise.all([
@@ -194,7 +189,7 @@ export const resolvers = {
                 console.log("session saved");
 
                 const saveUniversitySubCoursesWithPopulation = async (universitySubCourses, newUniversity, session) => {
-                    const subCourseIds = universitySubCourses.map(course =>
+                    const subCourseIds = universitySubCourses?.map(course =>
                         typeof course === 'string' ? course : course.subCourseId
                     );
 
@@ -355,38 +350,38 @@ export const resolvers = {
 export default resolvers;
 
 
- // // Validate all IDs directly from MongoDB
-                // const [validAccrediations, validSubCourses, validSocialMediaLinks, validPlacementPartners, validAmenities] = await Promise.all([
-                //     validateIDs(Accrediation, accrediations),
-                //     validateIDs(SubCourse, subCourseIds),
-                //     validateIDs(SocialMedia, Array.isArray(socialMediaLinks) ? socialMediaLinks : [socialMediaLinks]),
-                //     validateIDs(PlacementPartner, placementPartners),
-                //     validateIDs(Amenity, amenities)
-                // ]);
+// // Validate all IDs directly from MongoDB
+// const [validAccrediations, validSubCourses, validSocialMediaLinks, validPlacementPartners, validAmenities] = await Promise.all([
+//     validateIDs(Accrediation, accrediations),
+//     validateIDs(SubCourse, subCourseIds),
+//     validateIDs(SocialMedia, Array.isArray(socialMediaLinks) ? socialMediaLinks : [socialMediaLinks]),
+//     validateIDs(PlacementPartner, placementPartners),
+//     validateIDs(Amenity, amenities)
+// ]);
 
-                // // Validation checks
-                // if (validAccrediations.length !== accrediations.length) {
-                //     throw new GraphQLError('Invalid accreditation IDs', {
-                //         extensions: { code: 'BAD_USER_INPUT' },
-                //     })
-                // }
-                // if (validSubCourses.length !== subCourseIds.length) {
-                //     throw new GraphQLError('Invalid subcourse IDs', {
-                //         extensions: { code: 'BAD_USER_INPUT' },
-                //     })
-                // // }
-                // if (validSocialMediaLinks.length !== socialMediaLinks.length) {
-                //     throw new GraphQLError('Invalid social media link IDs', {
-                //         extensions: { code: 'BAD_USER_INPUT' },
-                //     })
-                // }
-                // if (validPlacementPartners.length !== placementPartners.length) {
-                //     throw new GraphQLError('Invalid placement partner IDs', {
-                //         extensions: { code: 'BAD_USER_INPUT' },
-                //     })
-                // }
-                // if (validAmenities.length !== amenities.length) {
-                //     throw new GraphQLError('Invalid amenity IDs', {
-                //         extensions: { code: 'BAD_USER_INPUT' },
-                //     })
-                // }
+// // Validation checks
+// if (validAccrediations.length !== accrediations.length) {
+//     throw new GraphQLError('Invalid accreditation IDs', {
+//         extensions: { code: 'BAD_USER_INPUT' },
+//     })
+// }
+// if (validSubCourses.length !== subCourseIds.length) {
+//     throw new GraphQLError('Invalid subcourse IDs', {
+//         extensions: { code: 'BAD_USER_INPUT' },
+//     })
+// // }
+// if (validSocialMediaLinks.length !== socialMediaLinks.length) {
+//     throw new GraphQLError('Invalid social media link IDs', {
+//         extensions: { code: 'BAD_USER_INPUT' },
+//     })
+// }
+// if (validPlacementPartners.length !== placementPartners.length) {
+//     throw new GraphQLError('Invalid placement partner IDs', {
+//         extensions: { code: 'BAD_USER_INPUT' },
+//     })
+// }
+// if (validAmenities.length !== amenities.length) {
+//     throw new GraphQLError('Invalid amenity IDs', {
+//         extensions: { code: 'BAD_USER_INPUT' },
+//     })
+// }
