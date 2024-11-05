@@ -44,6 +44,11 @@ type ExaminationPattern {
     document: String
 }
 
+type Query {
+    getUniversity(id: ID!): University
+    getAllUniversities: [University]
+}
+
 type Mutation {
     addUniversity(input: AddUniversityInput!): University!
     updateUniversity(id: ID!, input: UpdateUniversityInput!): University!
@@ -112,6 +117,8 @@ input AddUniversitySubCourseInput {
     subCourseId: ID
     customFees: Int
     customDescription: String
+    customSyllabus: Upload
+    customBanners: [BannerInput]
 }
 `;
 

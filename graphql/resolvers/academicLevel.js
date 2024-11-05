@@ -60,7 +60,7 @@ const resolvers = {
                     });
                 }
 
-                const { name } = input;
+                const { name, streams } = input;
 
                 // Convert name to lowercase
                 const lowerCaseName = name.toLowerCase();
@@ -74,13 +74,17 @@ const resolvers = {
                 }
 
                 // Create new Academic Level
-                const newAcademicLevel = new AcademicLevel({ name: lowerCaseName });
+                const newAcademicLevel = new AcademicLevel({ 
+                    name: lowerCaseName, 
+                    streams
+                });
                 await newAcademicLevel.save();
 
                 // Invalidate the streams cache
                 await redisClient.del(CACHE_KEYS.ACADEMIC_LEVEL.ALL);
                 return newAcademicLevel;
             } catch (error) {
+                console.log(error);
                 throw new GraphQLError(error.message, {
                     extensions: { code: 'INTERNAL_SERVER_ERROR' },
                 });
