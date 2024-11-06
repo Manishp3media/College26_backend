@@ -64,12 +64,10 @@ const universitySchema = new mongoose.Schema({
             type: [
                 {
                     stepNumber: {
-                        type: Number,
-                        required: true
+                        type: Number
                     },
                     stepDescription: {
-                        type: String,
-                        required: true
+                        type: String
                     }
                 }
             ],

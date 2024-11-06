@@ -99,8 +99,8 @@ input AdmissionProcessInput {
 }
 
 input AdmissionStepInput {
-    stepNumber: Int!
-    stepDescription: String!
+    stepNumber: Int
+    stepDescription: String
 }
 
 input AboutInput {
@@ -118,7 +118,7 @@ input AddUniversitySubCourseInput {
     customFees: Int
     customDescription: String
     customSyllabus: Upload
-    customBanners: [BannerInput]
+    customBanners: [Upload]
 }
 `;
 
