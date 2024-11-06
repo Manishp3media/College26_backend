@@ -1,4 +1,6 @@
 const typeDefs = `#graphql
+    scalar Upload
+
     type SocialMedia {
         _id: ID!
         name: String!
@@ -7,7 +9,7 @@ const typeDefs = `#graphql
 
     input AddSocialMediaInput {
         name: String!
-        url: String!
+        url: Upload!
     }
 
     type Query {

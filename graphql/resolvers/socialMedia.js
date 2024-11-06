@@ -2,6 +2,7 @@ import { addSocialMediaValidationSchema } from "../../validations/socialMedia.js
 import { CACHE_KEYS, CACHE_TTL } from "../../constants/cache.js";
 import SocialMedia from "../../models/SocialMedia.js";
 import { GraphQLError } from "graphql";
+import { storageService } from "../../utils/storage.js";
 
 const resolvers = {
     Query: {
@@ -47,7 +48,9 @@ const resolvers = {
               extensions: { code: 'UNAUTHORIZED' },
             });
           }
-  
+
+          const { name, url } = input;
+
           // Validate input
           const validation = addSocialMediaValidationSchema.safeParse(input);
           if (!validation.success) {
@@ -59,7 +62,12 @@ const resolvers = {
             });
           }
   
-          const { name, url } = input;
+          const upload = await url;
+
+          if (!upload) {
+              throw new GraphQLError('File upload failed');
+          }
+         
           const lowerCaseName = name.toLowerCase();
   
           // Check if social media exists
@@ -69,9 +77,12 @@ const resolvers = {
               extensions: { code: 'BAD_USER_INPUT' },
             });
           }
+
+          // Save image
+          const logoUrl = await storageService.saveImage(upload, 'social-media');
   
           // Create new social media
-          const newSocialMedia = new SocialMedia({ name: lowerCaseName, url });
+          const newSocialMedia = new SocialMedia({ name: lowerCaseName, url: logoUrl });
           await newSocialMedia.save();
   
           // Invalidate cache
