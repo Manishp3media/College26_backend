@@ -73,7 +73,7 @@ async function initializeApolloServer() {
         // 4. Upload middleware
         app.use(graphqlUploadExpress({ 
             maxFileSize: 50000000, // 50 MB
-            maxFiles: 10
+            maxFiles: 50
         }));
 
 

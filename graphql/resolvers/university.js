@@ -117,57 +117,88 @@ export const resolvers = {
         addUniversity: async (_, { input }, { redisClient, isAdmin }) => {
             const session = await mongoose.startSession();
             session.startTransaction();
-
+        
             try {
                 if (!isAdmin) {
                     throw new GraphQLError('Not authorized', {
                         extensions: { code: 'UNAUTHORIZED' },
                     });
                 }
-
-
-                const { universityName, universityShortName, universityLink, universityLogo, banners, brochure, tagLine, about, universitySubCourses, accrediations, admissionProcess, examinationPattern, placementPartners, socialMediaLinks, amenities } = input;
-
-                // log input
-                console.log(input);
-
-                // Convert name to lowercase
+        
+                const { 
+                    universityName, 
+                    universityShortName, 
+                    universityLink, 
+                    universityLogo, 
+                    banners, 
+                    brochure, 
+                    tagLine, 
+                    about,
+                    universitySubCourses, 
+                    accrediations, 
+                    admissionProcess, 
+                    examinationPattern, 
+                    placementPartners, 
+                    socialMediaLinks, 
+                    amenities 
+                } = input;
+        
+                // Extract all custom banners and syllabi from universitySubCourses
+                const customBannersArrays = universitySubCourses
+                    ?.filter(course => typeof course !== 'string' && course.customBanners)
+                    ?.map(course => course.customBanners) || [];
+                
+                const customSyllabiFiles = universitySubCourses
+                    ?.filter(course => typeof course !== 'string' && course.customSyllabus)
+                    ?.map(course => course.customSyllabus) || [];
+        
+                // Handle all file uploads concurrently at the start
+                const [
+                    bannerUrls,
+                    universityLogoUrl,
+                    brochureUrl,
+                    examinationPatternDocumentUrl,
+                    customBannerUrlsArrays,
+                    customSyllabiUrls
+                ] = await Promise.all([
+                    validateAndUploadFiles(banners, 'banners'),
+                    uploadSingleFile(universityLogo, 'university-logo'),
+                    uploadSingleFile(brochure, 'brochure'),
+                    examinationPattern?.document ? uploadSingleFile(examinationPattern.document, 'examination-pattern') : null,
+                    Promise.all(customBannersArrays.map(bannerArray => 
+                        validateAndUploadFiles(bannerArray, 'custom-banners')
+                    )),
+                    Promise.all(customSyllabiFiles.map(syllabus =>
+                        uploadSingleFile(syllabus, 'custom-syllabus')
+                    ))
+                ]);
+        
+                // Use default banner if no banners were uploaded successfully
+                const finalBannerUrls = bannerUrls.length > 0 ? bannerUrls : [DEFAULT_BANNER];
+        
+                // Create a map of uploaded files for easy access when processing subcourses
+                const uploadedFilesMap = {
+                    customBanners: customBannerUrlsArrays,
+                    customSyllabus: customSyllabiUrls
+                };
+        
+                // Rest of the university creation logic...
                 const lowerCaseUniversityName = universityName.toLowerCase();
                 const lowerCaseUniversityShortName = universityShortName.toLowerCase();
-
-                const existingUniversity = await University.findOne({ $or: [{ universityName: lowerCaseUniversityName }, { universityShortName: lowerCaseUniversityShortName }] });
+        
+                const existingUniversity = await University.findOne({
+                    $or: [
+                        { universityName: lowerCaseUniversityName },
+                        { universityShortName: lowerCaseUniversityShortName }
+                    ]
+                });
+        
                 if (existingUniversity) {
                     throw new GraphQLError('University with this name or short name already exists', {
                         extensions: { code: 'BAD_USER_INPUT' },
                     });
                 }
-
-                // Validate that all subcourse IDs exist
-                if (universitySubCourses) {
-                    const subCourseIds = universitySubCourses.map(course =>
-                        typeof course === 'string' ? course : course.subCourseId
-                    );
-                }
-
-
-
-                // Handle all file uploads concurrently
-                const [bannerUrls, universityLogoUrl, brochureUrl, examinationPatternDocumentUrl] = await Promise.all([
-                    validateAndUploadFiles(banners, 'banners'),
-                    uploadSingleFile(universityLogo, 'university-logo'),
-                    uploadSingleFile(brochure, 'brochure'),
-                    examinationPattern?.document ? uploadSingleFile(examinationPattern.document, 'examination-pattern') : null,
-                ]);
-
-                // Use default banner if no banners were uploaded successfully
-                const finalBannerUrls = bannerUrls.length > 0 ? bannerUrls : [DEFAULT_BANNER];
-
-                // Construct examinationPattern object with document URL
-                const examinationPatternData = {
-                    description: examinationPattern?.description,
-                    document: examinationPatternDocumentUrl, // Store document URL
-                };
-
+        
                 const newUniversity = new University({
                     universityName: lowerCaseUniversityName,
                     universityShortName: lowerCaseUniversityShortName,
@@ -178,21 +209,23 @@ export const resolvers = {
                     tagLine,
                     accrediations,
                     admissionProcess,
-                    examinationPattern: examinationPatternData,
+                    examinationPattern: {
+                        description: examinationPattern?.description,
+                        document: examinationPatternDocumentUrl,
+                    },
                     placementPartners,
                     socialMediaLinks,
                     amenities,
                     about
                 });
-
+        
                 await newUniversity.save({ session });
-                console.log("session saved");
-
-                const saveUniversitySubCoursesWithPopulation = async (universitySubCourses, newUniversity, session) => {
+        
+                const saveUniversitySubCoursesWithPopulation = async (universitySubCourses, newUniversity, session, uploadedFilesMap) => {
                     const subCourseIds = universitySubCourses?.map(course =>
                         typeof course === 'string' ? course : course.subCourseId
                     );
-
+        
                     const subCoursesMap = await mongoose.model('SubCourse')
                         .find({ _id: { $in: subCourseIds } })
                         .session(session)
@@ -202,16 +235,18 @@ export const resolvers = {
                                 return acc;
                             }, {});
                         });
-
+        
+                    let customBannersIndex = 0;
+                    let customSyllabusIndex = 0;
+        
                     const universitySubCoursesToSave = await Promise.all(universitySubCourses.map(async course => {
                         const subCourseId = typeof course === 'string' ? course : course.subCourseId;
                         const subCourse = subCoursesMap[subCourseId.toString()];
-
+        
                         if (!subCourse) {
                             throw new Error(`SubCourse with ID ${subCourseId} not found`);
                         }
-
-                        // Create base object with default values from subCourse
+        
                         const baseObject = {
                             university: newUniversity._id,
                             subCourse: subCourseId,
@@ -222,123 +257,72 @@ export const resolvers = {
                             customShortName: subCourse.subCourseShortName,
                             customBanners: subCourse.banners
                         };
-
-                        // If course is an object (not just a string ID), handle custom uploads and values
+        
                         if (typeof course !== 'string') {
-                            // Handle custom banner uploads
-                            let customBannerUrls = [];
-                            if (course.customBanners && Array.isArray(course.customBanners) && course.customBanners.length > 0) {
-                                console.log("Processing custom banners:", course.customBanners);
-
-                                // Filter out null values first
-                                const nonNullBanners = course.customBanners.filter(banner => banner !== null);
-
-                                if (nonNullBanners.length > 0) {
-                                    for (const banner of nonNullBanners) {
-                                        try {
-                                            const upload = await banner; // Resolve the upload promise
-                                            if (!upload) continue;
-
-                                            const url = await storageService.saveImage(upload, 'custom-banners');
-                                            console.log("Uploaded custom banner:", url);
-                                            customBannerUrls.push({ url });
-                                        } catch (error) {
-                                            console.error('Error uploading custom banner:', error);
-                                        }
-                                    }
-                                }
+                            // Use pre-uploaded custom banners
+                            if (course.customBanners && course.customBanners.length > 0) {
+                                baseObject.customBanners = uploadedFilesMap.customBanners[customBannersIndex++];
                             }
-
-                            // If custom banners were successfully uploaded, update baseObject
-                            if (customBannerUrls.length > 0) {
-                                baseObject.customBanners = customBannerUrls;
-                            }
-
-                            // Handle custom syllabus upload
+        
+                            // Use pre-uploaded custom syllabus
                             if (course.customSyllabus) {
-                                try {
-                                    const upload = await course.customSyllabus;
-                                    if (upload) {
-                                        const customSyllabusUrl = await storageService.saveImage(upload, 'custom-syllabus');
-                                        console.log("Uploaded custom syllabus:", customSyllabusUrl);
-                                        baseObject.customSyllabus = customSyllabusUrl;
-                                    }
-                                } catch (error) {
-                                    console.error('Error uploading custom syllabus:', error);
-                                    throw new GraphQLError('Failed to upload custom syllabus', {
-                                        extensions: { code: 'UPLOAD_FAILED' },
-                                    });
-                                }
+                                baseObject.customSyllabus = uploadedFilesMap.customSyllabus[customSyllabusIndex++];
                             }
-
+        
                             // Handle other custom fields
                             if (course.customFees != null) baseObject.customFees = course.customFees;
                             if (course.customDescription != null) baseObject.customDescription = course.customDescription;
                             if (course.customName != null) baseObject.customName = course.customName;
                             if (course.customShortName != null) baseObject.customShortName = course.customShortName;
                         }
-
-                        console.log("Final baseObject:", baseObject);
+        
                         return baseObject;
                     }));
-
-                    // Save all university sub courses
+        
                     const savedUniversitySubCourses = await UniversitySubCourse
                         .insertMany(universitySubCoursesToSave, { session });
-
-                    // Fetch the saved documents with populated subCourse field
-                    const populatedUniversitySubCourses = await UniversitySubCourse
+        
+                    return await UniversitySubCourse
                         .find({ _id: { $in: savedUniversitySubCourses.map(doc => doc._id) } })
                         .populate({
                             path: 'subCourse',
                             select: 'subCourseName subCourseShortName banners subCourseDescription syllabus fees'
                         })
                         .session(session);
-
-                    console.log("Populated universitySubCourses:", populatedUniversitySubCourses);
-
-                    return populatedUniversitySubCourses;
                 };
-
-                // Usage in your transaction
+        
                 try {
                     const savedUniversitySubCourses = await saveUniversitySubCoursesWithPopulation(
                         universitySubCourses,
                         newUniversity,
-                        session
+                        session,
+                        uploadedFilesMap
                     );
-
-                    savedUniversitySubCourses.forEach(savedUniversitySubCourse => {
-                        console.log("savedUniversitySubCourse:", {
-                            _id: savedUniversitySubCourse._id,
-                            university: savedUniversitySubCourse.university,
-                            subCourse: savedUniversitySubCourse.subCourse,
-                            fees: savedUniversitySubCourse.customFees, // This will use the virtual getter
-                            description: savedUniversitySubCourse.description, // This will use the virtual getter
-                            syllabus: savedUniversitySubCourse.syllabus, // This will use the virtual getter
-                            banners: savedUniversitySubCourse.banners // This will use the virtual getter
-                        });
-                    });
+        
+                    // Invalidate the university cache
+                    redisClient.del(CACHE_KEYS.UNIVERSITIES.ALL);
+        
+                    await session.commitTransaction();
+                    session.endSession();
+        
+                    return newUniversity;
+        
                 } catch (error) {
-                    console.error('Error saving university sub courses:', error);
+                    if (error instanceof GraphQLError) {
+                        throw error;
+                    }
+                    console.log('Error adding university:', error);
+                    throw new GraphQLError('Failed to add university', {
+                        extensions: { code: 'ADD_FAILED' },
+                    });
+                }
+            } catch (error) {
+                await session.abortTransaction();
+                session.endSession();
+                if (error instanceof GraphQLError) {
                     throw error;
                 }
-
-                // Invalidate the university cache
-                redisClient.del(CACHE_KEYS.UNIVERSITIES.ALL);
-
-                await session.commitTransaction();
-                session.endSession();
-
-                return newUniversity;
-
-            } catch (error) {
-                // Check if this error is already a GraphQLError with a specific message
-                if (error instanceof GraphQLError) {
-                    throw error;  // Pass through the specific error message
-                }
                 console.log('Error adding university:', error);
-                // For unexpected errors, throw a generic message
                 throw new GraphQLError('Failed to add university', {
                     extensions: { code: 'ADD_FAILED' },
                 });
