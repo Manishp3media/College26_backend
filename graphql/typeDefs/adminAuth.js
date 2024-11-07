@@ -1,4 +1,11 @@
+
+
 const typeDefs = `#graphql
+directive @auth(
+    roles: [String]
+    public: Boolean = false
+) on FIELD_DEFINITION
+
     type AuthResponse {
         token: String!
     }
@@ -9,8 +16,8 @@ const typeDefs = `#graphql
     }
 
     type Mutation {
-        adminSignin(input: AdminInput!): AuthResponse!
-        adminSignup(input: AdminInput!): AuthResponse!
+        adminSignin(input: AdminInput!): AuthResponse! @auth(public: true)
+        adminSignup(input: AdminInput!): AuthResponse! @auth(public: true)
     }
 `
 export default typeDefs;

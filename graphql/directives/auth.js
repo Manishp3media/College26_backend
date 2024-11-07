@@ -1,8 +1,13 @@
 import { mapSchema, getDirective, MapperKind } from "@graphql-tools/utils";
 import { GraphQLError } from "graphql";
 
-import { mapSchema, getDirective, MapperKind } from '@graphql-tools/utils';
-import { GraphQLError } from 'graphql';
+// Directive definition
+export const authDirectiveTypeDefs = `
+  directive @auth(
+    roles: [String]
+    public: Boolean = false
+  ) on FIELD_DEFINITION
+`;
 
 export function authDirectiveTransformer(schema) {
   return mapSchema(schema, {
@@ -11,16 +16,23 @@ export function authDirectiveTransformer(schema) {
       
       if (authDirective) {
         const { resolve: originalResolve } = fieldConfig;
-        
+        const { roles, public: isPublic } = authDirective;
+
         fieldConfig.resolve = async function (source, args, context, info) {
+          // Skip auth check if endpoint is marked as public
+          if (isPublic) {
+            return originalResolve.call(this, source, args, context, info);
+          }
+
+          // Perform authentication check
           if (!context.isAuthenticated) {
             throw new GraphQLError('Not authenticated', {
               extensions: { code: 'UNAUTHENTICATED' }
             });
           }
 
-          const { roles } = authDirective;
-          if (roles) {
+          // Perform authorization check if roles are specified
+          if (roles?.length > 0) {
             const userRole = context.user.role;
             if (!roles.includes(userRole)) {
               throw new GraphQLError('Not authorized', {
@@ -28,10 +40,11 @@ export function authDirectiveTransformer(schema) {
               });
             }
           }
-          
+
           return originalResolve.call(this, source, args, context, info);
         };
       }
+
       return fieldConfig;
     },
   });
